@@ -1,99 +1,163 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Ekinnow Backend
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+[![CI](https://github.com/ekin-now/backend/actions/workflows/ci.yml/badge.svg)](https://github.com/ekin-now/backend/actions/workflows/ci.yml)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=ekin-now_backend&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=ekin-now_backend)
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=ekin-now_backend&metric=coverage)](https://sonarcloud.io/summary/new_code?id=ekin-now_backend)
+[![Bugs](https://sonarcloud.io/api/project_badges/measure?project=ekin-now_backend&metric=bugs)](https://sonarcloud.io/summary/new_code?id=ekin-now_backend)
+[![Code Smells](https://sonarcloud.io/api/project_badges/measure?project=ekin-now_backend&metric=code_smells)](https://sonarcloud.io/summary/new_code?id=ekin-now_backend)
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://coveralls.io/github/nestjs/nest?branch=master" target="_blank"><img src="https://coveralls.io/repos/github/nestjs/nest/badge.svg?branch=master#9" alt="Coverage" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+REST API built with NestJS, TypeORM, and PostgreSQL (Supabase). Handles user management and JWT authentication.
 
-## Description
+## Tech Stack
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+- **Framework**: NestJS + TypeScript
+- **Database**: PostgreSQL via Supabase (TypeORM)
+- **Auth**: JWT + Passport (local strategy)
+- **Validation**: class-validator
+- **Testing**: Jest
+- **CI**: GitHub Actions + SonarCloud
 
-## Project setup
+## Prerequisites
 
-```bash
-$ npm install
-```
+- Node.js 22+
+- npm 10+
+- A [Supabase](https://supabase.com) project
 
-## Compile and run the project
+## Getting Started
+
+### 1. Install dependencies
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+npm install
 ```
 
-## Run tests
+### 2. Configure environment
+
+Copy `.env.example` to `.env` and fill in the values:
 
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+cp .env.example .env
 ```
 
-## Deployment
+```env
+# Supabase Session Pooler (Settings → Database → Connection pooling → Session mode)
+DB_HOST=aws-0-<region>.pooler.supabase.com
+DB_PORT=5432
+DB_USERNAME=postgres.<project-ref>
+DB_PASSWORD=your-password
+DB_NAME=postgres
+DB_SSL=false
+DB_SSL_REJECT_UNAUTHORIZED=false   # false for local dev with Supabase pooler
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+JWT_SECRET=your-secret-key         # use a long random string in production
+JWT_EXPIRES_IN=7d
+```
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+> **Note:** Use the **Session Pooler** host from Supabase, not the direct connection. The direct connection uses IPv6 which may not be reachable from all networks.
+
+### 3. Run database migrations
 
 ```bash
-$ npm install -g mau
-$ mau deploy
+npm run migration:run
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+### 4. Start the server
 
-## Resources
+```bash
+# Development (watch mode)
+npm run start:dev
 
-Check out a few resources that may come in handy when working with NestJS:
+# Production
+npm run start:prod
+```
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+API runs at `http://localhost:3000`.
 
-## Support
+## API Endpoints
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+### Auth
 
-## Stay in touch
+| Method | Endpoint | Body | Description |
+|--------|----------|------|-------------|
+| `POST` | `/auth/login` | `{ email, password }` | Returns JWT token |
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+### Users
 
-## License
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `POST` | `/users` | No | Create user |
+| `GET` | `/users` | No | List all users |
+| `GET` | `/users/:id` | No | Get user by ID |
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+### Protected route example
+
+```http
+GET /users
+Authorization: Bearer <access_token>
+```
+
+## Database Migrations
+
+```bash
+# Generate migration from entity changes
+npm run migration:generate -- src/database/migrations/MigrationName
+
+# Apply pending migrations
+npm run migration:run
+
+# Revert last migration
+npm run migration:revert
+
+# Show migration status
+npm run migration:show
+```
+
+## Testing
+
+```bash
+# Unit tests
+npm test
+
+# Unit tests with coverage
+npm run test:cov
+
+# Watch mode
+npm run test:watch
+```
+
+## Code Quality
+
+```bash
+# Lint
+npm run lint
+
+# Format
+npm run format
+
+# Type check
+npx tsc --noEmit
+```
+
+CI runs on every PR to `main`: lint → type check → tests → SonarCloud analysis.
+
+## Project Structure
+
+```
+src/
+├── auth/
+│   ├── dto/           # LoginDto
+│   ├── guards/        # JwtAuthGuard, LocalAuthGuard
+│   ├── strategies/    # jwt.strategy, local.strategy
+│   ├── auth.controller.ts
+│   ├── auth.module.ts
+│   └── auth.service.ts
+├── database/
+│   ├── migrations/    # TypeORM migrations
+│   └── data-source.ts # TypeORM CLI config
+└── users/
+    ├── controller/
+    ├── dto/           # CreateUserDto
+    ├── entities/      # User entity
+    ├── service/
+    └── users.module.ts
+```

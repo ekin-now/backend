@@ -3,7 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { AuthService } from './auth.service';
 import { UsersService } from '../users/service/users.service';
-import { User } from '../users/entities/user.entitu';
+import { User } from '../users/entities/user.entity';
 
 const mockUser: User = {
   id: 'uuid-1',

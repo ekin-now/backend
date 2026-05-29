@@ -56,7 +56,7 @@ export class User {
     default: false,
   })
   isVerified: boolean;
-/*
+  /*
   @OneToMany(() => OrganizationMember, (member) => member.user)
   memberships: OrganizationMember[];
 */

@@ -4,7 +4,10 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  ManyToOne,
 } from 'typeorm';
+import { Company } from '../../company/entities/company.entity';
+import { UserRole } from './userRole.enum';
 
 @Entity('user')
 export class User {
@@ -56,10 +59,50 @@ export class User {
     default: false,
   })
   isVerified: boolean;
-  /*
-  @OneToMany(() => OrganizationMember, (member) => member.user)
-  memberships: OrganizationMember[];
-*/
+
+  @Column({
+    nullable: true,
+  })
+  gender?: string;
+
+  @Column({
+    nullable: true,
+  })
+  country?: string;
+
+  @Column({
+    nullable: true,
+  })
+  city?: string;
+
+  @Column({
+    nullable: true,
+  })
+  bio?: string;
+
+  @Column({
+    nullable: true,
+  })
+  instagram?: string;
+
+  @Column({
+    nullable: true,
+  })
+  strava?: string;
+
+  @ManyToOne(() => Company, (company) => company.users, {
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
+  company?: Company;
+
+  @Column({
+    type: 'enum',
+    enum: UserRole,
+    default: UserRole.PARTICIPANT,
+  })
+  role: UserRole;
+
   @CreateDateColumn()
   createdAt: Date;
 

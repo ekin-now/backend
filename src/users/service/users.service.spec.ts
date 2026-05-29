@@ -7,6 +7,7 @@ import { User } from '../entities/user.entity';
 import { CreateUserDto } from '../dto/create-user.dto';
 
 const mockUser: User = {
+  role: undefined,
   id: 'uuid-1',
   email: 'test@example.com',
   passwordHash: 'hashed',

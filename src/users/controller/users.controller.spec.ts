@@ -3,6 +3,7 @@ import { NotFoundException } from '@nestjs/common';
 import { UsersController } from './users.controller';
 import { UsersService } from '../service/users.service';
 import { CreateUserDto } from '../dto/create-user.dto';
+import { UserRole } from '../entities/userRole.enum';
 
 const mockUserResult = {
   id: 'uuid-1',
@@ -13,6 +14,7 @@ const mockUserResult = {
   isVerified: false,
   createdAt: new Date(),
   updatedAt: new Date(),
+  role: UserRole.PARTICIPANT,
 };
 
 describe('UsersController', () => {

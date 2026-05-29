@@ -112,6 +112,31 @@ npm run migration:revert
 npm run migration:show
 ```
 
+### Adding fields to an existing model
+
+Every time you modify an entity (add/remove/rename columns), you must create and apply a migration so the database schema stays in sync.
+
+**Step-by-step:**
+
+1. Edit the entity file (e.g. `src/users/entities/user.entity.ts`) — add your new `@Column()` fields.
+
+2. Generate the migration. Use a descriptive name:
+   ```bash
+   npm run migration:generate -- src/database/migrations/AddPhoneToUser
+   ```
+   TypeORM connects to the DB, diffs the current schema against your entities, and generates the SQL automatically.
+
+3. Review the generated file in `src/database/migrations/`. Verify the SQL looks correct before applying.
+
+4. Apply the migration:
+   ```bash
+   npm run migration:run
+   ```
+
+5. Commit both the entity change and the migration file together in the same commit.
+
+> **Never** set `synchronize: true` in production — it auto-mutates the schema without version control and can cause data loss.
+
 ## Testing
 
 ```bash

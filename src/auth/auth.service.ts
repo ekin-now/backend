@@ -20,8 +20,12 @@ export class AuthService {
     return result;
   }
 
-  login(user: { id: string; email: string }) {
-    const payload: JwtPayload = { sub: user.id, email: user.email };
+  login(user: { id: string; email: string; role: string }) {
+    const payload: JwtPayload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+    };
     return { access_token: this.jwtService.sign(payload) };
   }
 }

@@ -1,9 +1,14 @@
-import { Injectable, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { User } from '../entities/user.entity';
 import { CreateUserDto } from '../dto/create-user.dto';
+import { UpdateUserDto } from '../dto/update-user.dto';
 
 @Injectable()
 export class UsersService {
@@ -38,6 +43,30 @@ export class UsersService {
     const user = await this.usersRepository.findOneBy({ id });
     if (!user) return null;
     const { passwordHash: _hash, ...result } = user;
+    return result;
+  }
+
+  async update(
+    id: string,
+    dto: UpdateUserDto,
+  ): Promise<Omit<User, 'passwordHash'>> {
+    const user = await this.usersRepository.findOneBy({ id });
+    if (!user) throw new NotFoundException('User not found');
+
+    if (dto.username && dto.username !== user.username) {
+      const taken = await this.usersRepository.findOneBy({
+        username: dto.username,
+      });
+      if (taken) throw new ConflictException('Username already in use');
+    }
+
+    Object.assign(user, {
+      ...dto,
+      birthDate: dto.birthDate ? new Date(dto.birthDate) : user.birthDate,
+    });
+
+    const saved = await this.usersRepository.save(user);
+    const { passwordHash: _hash, ...result } = saved;
     return result;
   }
 

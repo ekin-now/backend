@@ -4,7 +4,7 @@ import * as bcrypt from 'bcrypt';
 import { AuthService } from './auth.service';
 import { UsersService } from '../users/service/users.service';
 import { User } from '../users/entities/user.entity';
-import { UserRole } from '../users/entities/userRole.enum';
+import { UserRole } from './decorators/userRole.enum';
 
 const mockUser: User = {
   id: 'uuid-1',

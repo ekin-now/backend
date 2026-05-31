@@ -4,7 +4,7 @@ import { UsersController } from './users.controller';
 import { UsersService } from '../service/users.service';
 import { CreateUserDto } from '../dto/create-user.dto';
 import { UpdateUserDto } from '../dto/update-user.dto';
-import { UserRole } from '../entities/userRole.enum';
+import { UserRole } from '../../auth/decorators/userRole.enum';
 
 const mockUserResult = {
   id: 'uuid-1',

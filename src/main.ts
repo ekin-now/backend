@@ -10,10 +10,12 @@ async function bootstrap() {
     .setTitle('EkinNow API')
     .setDescription('EkinNow API description')
     .setVersion('1.0')
-    .addTag('ekin')
+    .addBearerAuth()
     .build();
   const documentFactory = () => SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api', app, documentFactory);
+  SwaggerModule.setup('api', app, documentFactory, {
+    jsonDocumentUrl: 'swagger/json',
+  });
 
   app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
   await app.listen(process.env.PORT ?? 3000);

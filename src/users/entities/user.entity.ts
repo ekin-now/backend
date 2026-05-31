@@ -7,7 +7,7 @@ import {
   ManyToOne,
 } from 'typeorm';
 import { Company } from '../../company/entities/company.entity';
-import { UserRole } from './userRole.enum';
+import { UserRole } from '../../auth/decorators/userRole.enum';
 
 @Entity('user')
 export class User {

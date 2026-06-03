@@ -16,7 +16,7 @@ const mockService = {
   removeComment: jest.fn(),
 };
 
-const req = { user: { sub: 'user-1', role: UserRole.PARTICIPANT } };
+const req = { user: { id: 'user-1', role: UserRole.PARTICIPANT } };
 
 const mockPost = {
   id: 'post-1',

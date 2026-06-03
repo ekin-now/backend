@@ -9,7 +9,7 @@ const mockService = {
   getFollowing: jest.fn(),
 };
 
-const req = { user: { sub: 'user-uuid' } };
+const req = { user: { id: 'user-uuid' } };
 
 describe('FollowController', () => {
   let controller: FollowController;

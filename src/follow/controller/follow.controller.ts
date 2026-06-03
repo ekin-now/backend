@@ -27,33 +27,33 @@ export class FollowController {
 
   @ApiOkResponse({ type: FollowResponseDto, isArray: true })
   @Get('followers')
-  getFollowers(@Request() req: { user: { sub: string } }) {
-    return this.followService.getFollowers(req.user.sub);
+  getFollowers(@Request() req: { user: { id: string } }) {
+    return this.followService.getFollowers(req.user.id);
   }
 
   @ApiOkResponse({ type: FollowResponseDto, isArray: true })
   @Get('following')
-  getFollowing(@Request() req: { user: { sub: string } }) {
-    return this.followService.getFollowing(req.user.sub);
+  getFollowing(@Request() req: { user: { id: string } }) {
+    return this.followService.getFollowing(req.user.id);
   }
 
   @ApiNoContentResponse()
   @HttpCode(204)
   @Post(':userId')
   follow(
-    @Request() req: { user: { sub: string } },
+    @Request() req: { user: { id: string } },
     @Param('userId') targetId: string,
   ) {
-    return this.followService.follow(req.user.sub, targetId);
+    return this.followService.follow(req.user.id, targetId);
   }
 
   @ApiNoContentResponse()
   @HttpCode(204)
   @Delete(':userId')
   unfollow(
-    @Request() req: { user: { sub: string } },
+    @Request() req: { user: { id: string } },
     @Param('userId') targetId: string,
   ) {
-    return this.followService.unfollow(req.user.sub, targetId);
+    return this.followService.unfollow(req.user.id, targetId);
   }
 }

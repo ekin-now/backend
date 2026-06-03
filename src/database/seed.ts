@@ -5,6 +5,11 @@ import { Company } from '../company/entities/company.entity';
 import { User } from '../users/entities/user.entity';
 import { SportEvent } from '../sport-event/entities/sport-event.entity';
 import { SportSubEvent } from '../sport-sub-event/entities/sport-sub-event.entity';
+import { Follow } from '../follow/entities/follow.entity';
+import { Post } from '../post/entities/post.entity';
+import { PostComment } from '../post/entities/post-comment.entity';
+import { PostLike } from '../post/entities/post-like.entity';
+import { PostType } from '../post/entities/post-type.enum';
 import { UserRole } from '../auth/decorators/userRole.enum';
 import { SportEventStatus } from '../sport-event/entities/sport.event-status.enum';
 import { SportSubEventStatus } from '../sport-sub-event/entities/sport-sub-evet-status.enum';
@@ -50,6 +55,10 @@ async function seed() {
   const userRepo = AppDataSource.getRepository(User);
   const eventRepo = AppDataSource.getRepository(SportEvent);
   const subEventRepo = AppDataSource.getRepository(SportSubEvent);
+  const followRepo = AppDataSource.getRepository(Follow);
+  const postRepo = AppDataSource.getRepository(Post);
+  const commentRepo = AppDataSource.getRepository(PostComment);
+  const likeRepo = AppDataSource.getRepository(PostLike);
 
   // ── Clean previous seed data (reverse FK order) ───────────────────────────
 
@@ -141,15 +150,15 @@ async function seed() {
   // ── Users ─────────────────────────────────────────────────────────────────
 
   const [
-    _superAdmin,
-    _adminTrail,
+    superAdmin,
+    adminTrail,
     _staffTrail,
-    _adminCycling,
+    adminCycling,
     _staffCycling,
-    _adminTriatlon,
-    _p1,
-    _p2,
-    _p3,
+    adminTriatlon,
+    p1,
+    p2,
+    p3,
   ] = await userRepo.save([
     userRepo.create({
       email: 'admin@ekinnow.com',
@@ -748,6 +757,246 @@ async function seed() {
   ]);
 
   console.log('Sport sub-events created.');
+
+  // ── Follows ───────────────────────────────────────────────────────────────
+
+  await followRepo.save([
+    // Laura sigue a Javier, Neus, Carmen y Marc
+    followRepo.create({ followerId: p1.id, followingId: p2.id }),
+    followRepo.create({ followerId: p1.id, followingId: p3.id }),
+    followRepo.create({ followerId: p1.id, followingId: adminTrail.id }),
+    followRepo.create({ followerId: p1.id, followingId: adminTriatlon.id }),
+    // Javier sigue a Laura, Iker
+    followRepo.create({ followerId: p2.id, followingId: p1.id }),
+    followRepo.create({ followerId: p2.id, followingId: adminCycling.id }),
+    // Neus sigue a Laura, Marc
+    followRepo.create({ followerId: p3.id, followingId: p1.id }),
+    followRepo.create({ followerId: p3.id, followingId: adminTriatlon.id }),
+    // Carmen sigue a su staff
+    followRepo.create({ followerId: adminTrail.id, followingId: p1.id }),
+    // Iker sigue a Javier
+    followRepo.create({ followerId: adminCycling.id, followingId: p2.id }),
+  ]);
+
+  console.log('Follows created.');
+
+  // ── Posts ─────────────────────────────────────────────────────────────────
+
+  const [
+    postIker1,
+    postMarc1,
+    postNeus1,
+    postCarmen1,
+    postJavier1,
+    postLaura1,
+    postJavier2,
+    postNeus2,
+    postLaura2,
+    postSuperAdmin1,
+  ] = await postRepo.save([
+    postRepo.create({
+      userId: adminCycling.id,
+      type: PostType.EVENT_REF,
+      sportEventId: evItzulia.id,
+      text: '¡Quedan menos de 300 plazas para el Gran Fondo 120km de la Itzulia Amateur! Este año el recorrido incluye el Jaizkibel y el Arrate. Si estás pensándotelo, no esperes más 🚴‍♂️🏔️',
+    }),
+    postRepo.create({
+      userId: adminTriatlon.id,
+      type: PostType.EVENT_REF,
+      sportEventId: evBarcelona.id,
+      text: 'Orgullosos de presentar el Barcelona Triathlon 2026. Natación en el Port Olímpic, ciclismo por el litoral y carrera por la Vila Olímpica. Será épico 🏊🚴🏃 #BarcelonaTriathlon',
+    }),
+    postRepo.create({
+      userId: p3.id,
+      type: PostType.ACTIVITY,
+      activityData: {
+        sport: 'triathlon',
+        distance: 25.75,
+        duration: 4320,
+        pace: '2:48/km',
+        elevation: 60,
+      },
+      text: 'Entrenamiento de bloque esta mañana. Sprint completo a ritmo de competición, muy contenta con las sensaciones en la carrera 💪 Preparando el Barcelona Triathlon!',
+    }),
+    postRepo.create({
+      userId: adminTrail.id,
+      type: PostType.EVENT_REF,
+      sportEventId: evSierraNevada.id,
+      text: 'Abrimos inscripciones para la Sierra Nevada Ultra Trail 2026 🏔️ Tres distancias, los paisajes más espectaculares de Andalucía y un ambiente que no encontrarás en ningún otro sitio. La Ultra 100K ya supera el 60% de aforo. ¡Corre a inscribirte!',
+    }),
+    postRepo.create({
+      userId: p2.id,
+      type: PostType.ACTIVITY,
+      activityData: {
+        sport: 'trail',
+        distance: 21.4,
+        duration: 7560,
+        pace: '5:54/km',
+        elevation: 980,
+      },
+      text: 'Tirada larga por Sierra Norte esta mañana. Piernas de hierro y pulmones de cartón 😅 Pero hay que sufrir si quieres llegar en forma a la sierra. Poco a poco.',
+    }),
+    postRepo.create({
+      userId: p1.id,
+      type: PostType.TEXT,
+      text: 'Semana de carga terminada ✅ 4 sesiones, 68 km y 2800 m D+. El cuerpo pide descanso pero la cabeza ya piensa en el siguiente reto. Alguien más preparando Sierra Nevada? 🏔️',
+    }),
+    postRepo.create({
+      userId: p2.id,
+      type: PostType.TEXT,
+      text: 'Primer entrenamiento nocturno del año con frontal. Hay algo mágico en correr cuando el monte está en silencio y solo escuchas tus pasos y la respiración. Muy recomendable si nunca lo habéis probado 🌙',
+    }),
+    postRepo.create({
+      userId: p3.id,
+      type: PostType.TEXT,
+      text: 'Mañana toca piscina a las 6:30, bici al mediodía y carrera a la tarde. La vida del triatleta no es fácil pero tampoco la cambiaría por nada 😂 A por ello!',
+    }),
+    postRepo.create({
+      userId: p1.id,
+      type: PostType.ACTIVITY,
+      activityData: {
+        sport: 'cycling',
+        distance: 87,
+        duration: 11700,
+        pace: '26.8km/h',
+        elevation: 1450,
+      },
+      text: 'Salida en grupo por La Pedriza. Hemos pillado el día perfecto, sin viento y con buenas piernas. Ya tengo ganas de que llegue junio 🚴‍♀️',
+    }),
+    postRepo.create({
+      userId: superAdmin.id,
+      type: PostType.TEXT,
+      text: 'Ekinnow crece 🚀 Ya somos más de 500 atletas registrados en la plataforma. Gracias a todos los organizadores y participantes que confían en nosotros. Seguimos trabajando para mejorar vuestra experiencia deportiva.',
+    }),
+  ]);
+
+  console.log('Posts created.');
+
+  // ── Likes ─────────────────────────────────────────────────────────────────
+
+  await likeRepo.save([
+    // Post Iker (Itzulia event ref)
+    likeRepo.create({ userId: p2.id, postId: postIker1.id }),
+    likeRepo.create({ userId: p1.id, postId: postIker1.id }),
+    likeRepo.create({ userId: adminTrail.id, postId: postIker1.id }),
+    // Post Marc (Barcelona Triathlon)
+    likeRepo.create({ userId: p3.id, postId: postMarc1.id }),
+    likeRepo.create({ userId: p1.id, postId: postMarc1.id }),
+    // Post Neus (actividad triatlón)
+    likeRepo.create({ userId: p1.id, postId: postNeus1.id }),
+    likeRepo.create({ userId: adminTriatlon.id, postId: postNeus1.id }),
+    likeRepo.create({ userId: p2.id, postId: postNeus1.id }),
+    // Post Carmen (Sierra Nevada event ref)
+    likeRepo.create({ userId: p1.id, postId: postCarmen1.id }),
+    likeRepo.create({ userId: p2.id, postId: postCarmen1.id }),
+    likeRepo.create({ userId: p3.id, postId: postCarmen1.id }),
+    likeRepo.create({ userId: adminCycling.id, postId: postCarmen1.id }),
+    // Post Javier (actividad trail)
+    likeRepo.create({ userId: p1.id, postId: postJavier1.id }),
+    likeRepo.create({ userId: adminTrail.id, postId: postJavier1.id }),
+    // Post Laura (texto semana)
+    likeRepo.create({ userId: p2.id, postId: postLaura1.id }),
+    likeRepo.create({ userId: p3.id, postId: postLaura1.id }),
+    likeRepo.create({ userId: adminTrail.id, postId: postLaura1.id }),
+    // Post Javier nocturno
+    likeRepo.create({ userId: p1.id, postId: postJavier2.id }),
+    likeRepo.create({ userId: p3.id, postId: postJavier2.id }),
+    // Post Neus (texto triatleta)
+    likeRepo.create({ userId: p1.id, postId: postNeus2.id }),
+    likeRepo.create({ userId: adminTriatlon.id, postId: postNeus2.id }),
+    // Post Laura (actividad ciclismo)
+    likeRepo.create({ userId: p2.id, postId: postLaura2.id }),
+    likeRepo.create({ userId: adminCycling.id, postId: postLaura2.id }),
+    // Post superadmin
+    likeRepo.create({ userId: p1.id, postId: postSuperAdmin1.id }),
+    likeRepo.create({ userId: p2.id, postId: postSuperAdmin1.id }),
+    likeRepo.create({ userId: p3.id, postId: postSuperAdmin1.id }),
+  ]);
+
+  console.log('Likes created.');
+
+  // ── Comments ──────────────────────────────────────────────────────────────
+
+  await commentRepo.save([
+    // Post Iker (Itzulia)
+    commentRepo.create({
+      postId: postIker1.id,
+      userId: p2.id,
+      text: 'Inscrito en el Gran Fondo! Es mi primera vez y estoy emocionado 🎉',
+    }),
+    commentRepo.create({
+      postId: postIker1.id,
+      userId: p1.id,
+      text: 'Espero que la próxima edición haya también categoría mixta 🙏',
+    }),
+    commentRepo.create({
+      postId: postIker1.id,
+      userId: adminCycling.id,
+      text: '@laura.gomez estamos trabajando en ello para 2027 👌',
+    }),
+    // Post Carmen (Sierra Nevada)
+    commentRepo.create({
+      postId: postCarmen1.id,
+      userId: p2.id,
+      text: 'Llevo semanas mirando el recorrido de la 50K. Me animo 💪',
+    }),
+    commentRepo.create({
+      postId: postCarmen1.id,
+      userId: p1.id,
+      text: 'Yo voy a la 25K. ¿Alguien más del grupo?',
+    }),
+    commentRepo.create({
+      postId: postCarmen1.id,
+      userId: p3.id,
+      text: 'Yo! Mi primer trail de altura, un poco nerviosa pero lista 🙌',
+    }),
+    commentRepo.create({
+      postId: postCarmen1.id,
+      userId: adminTrail.id,
+      text: 'Os esperamos a todos! Si tenéis dudas sobre el recorrido escribidme directamente.',
+    }),
+    // Post Neus (actividad)
+    commentRepo.create({
+      postId: postNeus1.id,
+      userId: p1.id,
+      text: 'Esos tiempos son una barbaridad, cracks! 🔥',
+    }),
+    commentRepo.create({
+      postId: postNeus1.id,
+      userId: adminTriatlon.id,
+      text: 'Neus estás volando esta temporada. Te vemos en Barcelona 💪',
+    }),
+    // Post Javier (actividad trail)
+    commentRepo.create({
+      postId: postJavier1.id,
+      userId: p1.id,
+      text: 'Muy buenas sensaciones! 980m de desnivel no es moco de pavo 💪',
+    }),
+    commentRepo.create({
+      postId: postJavier1.id,
+      userId: adminTrail.id,
+      text: 'Esos entrenamientos por Sierra Norte son perfectos para preparar cualquier trail. Buen trabajo Javier!',
+    }),
+    // Post Laura (semana de carga)
+    commentRepo.create({
+      postId: postLaura1.id,
+      userId: p2.id,
+      text: 'Yo también! Apuntado a la 50K. Nos vemos en la salida 🤙',
+    }),
+    commentRepo.create({
+      postId: postLaura1.id,
+      userId: p3.id,
+      text: 'Semana brutal Laura! Yo voy a la 25K, así nos vemos 😊',
+    }),
+    // Post Laura (ciclismo)
+    commentRepo.create({
+      postId: postLaura2.id,
+      userId: adminCycling.id,
+      text: '87km por La Pedriza con ese desnivel, brutal! Si algún día vienes al norte te organizamos una salida por los puertos vascos 🏔️',
+    }),
+  ]);
+
+  console.log('Comments created.');
 
   await AppDataSource.destroy();
 

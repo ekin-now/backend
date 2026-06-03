@@ -6,14 +6,16 @@
 [![Bugs](https://sonarcloud.io/api/project_badges/measure?project=ekin-now_backend&metric=bugs)](https://sonarcloud.io/summary/new_code?id=ekin-now_backend)
 [![Code Smells](https://sonarcloud.io/api/project_badges/measure?project=ekin-now_backend&metric=code_smells)](https://sonarcloud.io/summary/new_code?id=ekin-now_backend)
 
-REST API built with NestJS, TypeORM, and PostgreSQL (Supabase). Handles user management and JWT authentication.
+REST API built with NestJS, TypeORM, and PostgreSQL (Supabase). Handles user management, JWT authentication, companies, and sport events.
 
 ## Tech Stack
 
-- **Framework**: NestJS + TypeScript
+- **Framework**: NestJS v11 + TypeScript
 - **Database**: PostgreSQL via Supabase (TypeORM)
 - **Auth**: JWT + Passport (local strategy)
 - **Validation**: class-validator
+- **Storage**: Cloudflare R2 (S3-compatible)
+- **Docs**: Swagger / OpenAPI (`/api`)
 - **Testing**: Jest
 - **CI**: GitHub Actions + SonarCloud
 
@@ -71,30 +73,252 @@ npm run start:dev
 npm run start:prod
 ```
 
-API runs at `http://localhost:3000`.
+API runs at `http://localhost:3000`.  
+Swagger UI at `http://localhost:3000/api`.
+
+## Roles
+
+| Role | Description |
+|------|-------------|
+| `PARTICIPANT` | Regular user |
+| `COMPANY_STAFF` | Staff member of a company |
+| `COMPANY_ADMIN` | Admin of a company — manages that company's data |
+| `SUPER_ADMIN` | Full access to all resources |
 
 ## API Endpoints
 
 ### Auth
 
-| Method | Endpoint | Body | Description |
+| Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| `POST` | `/auth/login` | `{ email, password }` | Returns JWT token |
+| `POST` | `/auth/login` | No | Returns JWT token |
 
 ### Users
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| `POST` | `/users` | No | Create user |
+| `POST` | `/users` | No | Register new user |
 | `GET` | `/users` | No | List all users |
 | `GET` | `/users/:id` | No | Get user by ID |
+| `PATCH` | `/users/:id` | JWT (self or SUPER_ADMIN) | Update profile |
 
-### Protected route example
+### Companies
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `POST` | `/company` | SUPER_ADMIN | Create company |
+| `GET` | `/company` | No | List active companies |
+| `GET` | `/company/:id` | No | Get company by ID |
+| `PATCH` | `/company/:id` | SUPER_ADMIN or COMPANY_ADMIN (own) | Update company |
+| `DELETE` | `/company/:id` | SUPER_ADMIN | Deactivate company |
+
+### Sport Events
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `POST` | `/sport-events` | SUPER_ADMIN or COMPANY_ADMIN | Create sport event |
+| `GET` | `/sport-events` | No | List published events (excludes DRAFT and CANCELLED) |
+| `GET` | `/sport-events/:id` | No | Get event by ID |
+| `PATCH` | `/sport-events/:id` | SUPER_ADMIN or COMPANY_ADMIN (own company) | Update event |
+| `DELETE` | `/sport-events/:id` | SUPER_ADMIN | Cancel event |
+
+> `COMPANY_ADMIN` can only create/update events belonging to their own company. `SUPER_ADMIN` must provide `companyId` in the request body when creating.
+
+### Sport Sub-Events
+
+Sub-events are nested under their parent sport event.
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `POST` | `/sport-events/:eventId/sub-events` | SUPER_ADMIN or COMPANY_ADMIN | Create sub-event |
+| `GET` | `/sport-events/:eventId/sub-events` | No | List sub-events (excludes DRAFT and CANCELLED) |
+| `GET` | `/sport-events/:eventId/sub-events/:id` | No | Get sub-event by ID |
+| `PATCH` | `/sport-events/:eventId/sub-events/:id` | SUPER_ADMIN or COMPANY_ADMIN | Update sub-event |
+| `DELETE` | `/sport-events/:eventId/sub-events/:id` | SUPER_ADMIN | Cancel sub-event |
+
+### Sport Event Statuses
+
+| Status | Description |
+|--------|-------------|
+| `DRAFT` | Not visible publicly |
+| `PUBLISHED` | Visible, registration not yet open |
+| `REGISTRATION_OPEN` | Open for registration |
+| `REGISTRATION_CLOSED` | Registration ended |
+| `IN_PROGRESS` | Event is happening |
+| `FINISHED` | Event completed |
+| `CANCELLED` | Soft-deleted, not visible publicly |
+
+### Storage
+
+All endpoints require JWT. Files are stored in Cloudflare R2.
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `POST` | `/storage/upload?type=<type>` | JWT | Upload file (multipart/form-data) |
+| `GET` | `/storage/presigned-url?type=<type>&contentType=<mime>` | JWT | Get pre-signed URL for direct client upload |
+| `DELETE` | `/storage/*key` | SUPER_ADMIN or COMPANY_ADMIN | Delete file by key |
+
+**Asset types and allowed MIME types:**
+
+| `type` | Used in | Allowed MIME |
+|--------|---------|--------------|
+| `events` | `SportEvent.bannerUrl`, `logoUrl` | `image/jpeg`, `image/png`, `image/webp` |
+| `sub-events` | `SportSubEvent.coverImageUrl` | `image/jpeg`, `image/png`, `image/webp` |
+| `companies` | `Company.logoUrl`, `bannerUrl` | `image/jpeg`, `image/png`, `image/webp` |
+| `users` | `User.avatarUrl` | `image/jpeg`, `image/png`, `image/webp` |
+| `gpx` | `SportSubEvent.gpxUrl` | `application/gpx+xml`, `text/xml`, `application/xml` |
+
+**Max file size:** 50 MB
+
+## Creating a Sport Event with Assets — Full Flow
+
+End-to-end example of creating a sport event and a sub-event including image and GPX uploads.
+
+### Step 1 — Upload event images (server-side)
 
 ```http
-GET /users
+POST /storage/upload?type=events
+Authorization: Bearer <token>
+Content-Type: multipart/form-data
+
+file: banner.jpg
+```
+```json
+{ "key": "events/a1b2c3.jpg", "url": "https://pub-xxx.r2.dev/events/a1b2c3.jpg" }
+```
+
+Repeat for the logo:
+
+```http
+POST /storage/upload?type=events
+file: logo.png
+```
+```json
+{ "key": "events/d4e5f6.png", "url": "https://pub-xxx.r2.dev/events/d4e5f6.png" }
+```
+
+### Step 2 — Create the SportEvent
+
+```http
+POST /sport-events
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+```json
+{
+  "name": "Madrid Trail 2025",
+  "shortDescription": "La mejor carrera de trail de la sierra de Madrid",
+  "description": "Carrera de trail running por los mejores senderos de la sierra de Madrid. Tres distancias disponibles para todos los niveles.",
+  "sportType": "trail",
+  "eventDate": "2025-10-12T07:00:00.000Z",
+  "registrationOpenAt": "2025-03-01T00:00:00.000Z",
+  "registrationCloseAt": "2025-10-01T00:00:00.000Z",
+  "country": "Spain",
+  "region": "Community of Madrid",
+  "city": "Manzanares el Real",
+  "address": "Parque Regional de la Cuenca Alta del Manzanares",
+  "latitude": 40.7198,
+  "longitude": -3.8682,
+  "bannerUrl": "https://pub-xxx.r2.dev/events/a1b2c3.jpg",
+  "logoUrl": "https://pub-xxx.r2.dev/events/d4e5f6.png",
+  "websiteUrl": "https://madridtrail2025.com",
+  "rulesDocumentUrl": "https://madridtrail2025.com/reglamento.pdf",
+  "featured": true,
+  "companyId": "uuid-de-la-company"
+}
+```
+
+Response includes the event `id` used in the next steps.
+
+### Step 3 — Upload sub-event cover image
+
+```http
+POST /storage/upload?type=sub-events
+Authorization: Bearer <token>
+file: portada-42k.jpg
+```
+```json
+{ "key": "sub-events/g7h8i9.jpg", "url": "https://pub-xxx.r2.dev/sub-events/g7h8i9.jpg" }
+```
+
+### Step 4 — Upload GPX via pre-signed URL (direct to R2, no server overhead)
+
+```http
+GET /storage/presigned-url?type=gpx&contentType=application/gpx+xml
+Authorization: Bearer <token>
+```
+```json
+{
+  "key": "gpx/j1k2l3.gpx",
+  "uploadUrl": "https://bucket.r2.cloudflarestorage.com/gpx/j1k2l3.gpx?X-Amz-Algorithm=...",
+  "publicUrl": "https://pub-xxx.r2.dev/gpx/j1k2l3.gpx"
+}
+```
+
+Then upload the file **directly to R2** — no NestJS involved:
+
+```http
+PUT <uploadUrl>
+Content-Type: application/gpx+xml
+
+<GPX file binary>
+```
+
+### Step 5 — Create the SportSubEvent
+
+```http
+POST /sport-events/<event-id>/sub-events
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+```json
+{
+  "name": "Marathon 42K",
+  "shortDescription": "Recorrido clásico de maratón por la sierra",
+  "description": "42.195 km de puro trail con 1.800m de desnivel positivo. Salida desde el centro de Manzanares.",
+  "distanceKm": 42.195,
+  "elevationGainMeters": 1800,
+  "capacity": 300,
+  "price": 55.00,
+  "currency": "EUR",
+  "startDateTime": "2025-10-12T07:00:00.000Z",
+  "timeLimitMinutes": 480,
+  "minimumAge": 18,
+  "gpxUrl": "https://pub-xxx.r2.dev/gpx/j1k2l3.gpx",
+  "coverImageUrl": "https://pub-xxx.r2.dev/sub-events/g7h8i9.jpg",
+  "bibNumberRequired": true,
+  "bibStartNumber": 1,
+  "bibEndNumber": 300,
+  "registrationOpenAt": "2025-03-01T00:00:00.000Z",
+  "registrationCloseAt": "2025-10-01T00:00:00.000Z"
+}
+```
+
+### Upload flow summary
+
+```
+Images (small files)         Large files / GPX
+──────────────────           ─────────────────────────────────────
+POST /storage/upload    →    GET /storage/presigned-url
+← { key, url }          →    ← { key, uploadUrl, publicUrl }
+                        →    PUT <uploadUrl>  (direct to R2)
+                        →    ← 200 OK from R2
+
+PATCH /sport-events/:id  { bannerUrl: url }
+POST  /sport-events/:id/sub-events  { gpxUrl: publicUrl }
+```
+
+The database only stores the **public URL**. The `key` is only needed for deletion (`DELETE /storage/*key`).
+
+## Authorization
+
+Endpoints protected by `JwtAuthGuard` require a Bearer token:
+
+```http
 Authorization: Bearer <access_token>
 ```
+
+Role enforcement uses the `@Roles()` decorator combined with `RolesGuard`. The role is embedded in the JWT payload so no extra DB query is needed per request.
 
 ## Database Migrations
 
@@ -170,18 +394,42 @@ CI runs on every PR to `main`: lint → type check → tests → SonarCloud anal
 ```
 src/
 ├── auth/
-│   ├── dto/           # LoginDto
-│   ├── guards/        # JwtAuthGuard, LocalAuthGuard
+│   ├── decorators/    # @Roles() decorator, UserRole enum
+│   ├── dto/           # LoginDto, AuthResponseDto
+│   ├── guards/        # JwtAuthGuard, LocalAuthGuard, RolesGuard
 │   ├── strategies/    # jwt.strategy, local.strategy
 │   ├── auth.controller.ts
 │   ├── auth.module.ts
 │   └── auth.service.ts
+├── company/
+│   ├── controller/
+│   ├── dto/           # CreateCompanyDto, UpdateCompanyDto, CompanyResponseDto
+│   ├── entities/      # Company entity
+│   ├── service/
+│   └── company.module.ts
 ├── database/
 │   ├── migrations/    # TypeORM migrations
 │   └── data-source.ts # TypeORM CLI config
+├── sport-event/
+│   ├── controller/
+│   ├── dto/           # CreateSportEventDto, UpdateSportEventDto, SportEventResponseDto
+│   ├── entities/      # SportEvent entity, SportEventStatus enum
+│   ├── service/
+│   └── sport-event.module.ts
+├── sport-sub-event/
+│   ├── controller/
+│   ├── dto/           # CreateSportSubEventDto, UpdateSportSubEventDto, SportSubEventResponseDto
+│   ├── entities/      # SportSubEvent entity, SportSubEventStatus enum
+│   ├── service/
+│   └── sport-sub-event.module.ts
+├── storage/
+│   ├── dto/           # UploadResponseDto, PresignedUrlResponseDto
+│   ├── storage.controller.ts
+│   ├── storage.module.ts
+│   └── storage.service.ts
 └── users/
     ├── controller/
-    ├── dto/           # CreateUserDto
+    ├── dto/           # CreateUserDto, UpdateUserDto, UserResponseDto
     ├── entities/      # User entity
     ├── service/
     └── users.module.ts

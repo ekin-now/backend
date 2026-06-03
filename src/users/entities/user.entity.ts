@@ -7,7 +7,7 @@ import {
   ManyToOne,
 } from 'typeorm';
 import { Company } from '../../company/entities/company.entity';
-import { UserRole } from './userRole.enum';
+import { UserRole } from '../../auth/decorators/userRole.enum';
 
 @Entity('user')
 export class User {
@@ -89,6 +89,9 @@ export class User {
     nullable: true,
   })
   strava?: string;
+
+  @Column({ nullable: true, type: 'uuid' })
+  companyId?: string;
 
   @ManyToOne(() => Company, (company) => company.users, {
     nullable: true,

@@ -4,7 +4,7 @@ import * as bcrypt from 'bcrypt';
 import { AuthService } from './auth.service';
 import { UsersService } from '../users/service/users.service';
 import { User } from '../users/entities/user.entity';
-import { UserRole } from '../users/entities/userRole.enum';
+import { UserRole } from './decorators/userRole.enum';
 
 const mockUser: User = {
   id: 'uuid-1',
@@ -81,11 +81,16 @@ describe('AuthService', () => {
     it('returns access_token', () => {
       jwtService.sign.mockReturnValue('signed-token');
 
-      const result = service.login({ id: 'uuid-1', email: 'test@example.com' });
+      const result = service.login({
+        id: 'uuid-1',
+        email: 'test@example.com',
+        role: 'PARTICIPANT',
+      });
 
       expect(jwtService.sign).toHaveBeenCalledWith({
         sub: 'uuid-1',
         email: 'test@example.com',
+        role: 'PARTICIPANT',
       });
       expect(result).toEqual({ access_token: 'signed-token' });
     });

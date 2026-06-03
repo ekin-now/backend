@@ -3,7 +3,8 @@ import { NotFoundException } from '@nestjs/common';
 import { UsersController } from './users.controller';
 import { UsersService } from '../service/users.service';
 import { CreateUserDto } from '../dto/create-user.dto';
-import { UserRole } from '../entities/userRole.enum';
+import { UpdateUserDto } from '../dto/update-user.dto';
+import { UserRole } from '../../auth/decorators/userRole.enum';
 
 const mockUserResult = {
   id: 'uuid-1',
@@ -31,6 +32,7 @@ describe('UsersController', () => {
             create: jest.fn(),
             findAll: jest.fn(),
             findOne: jest.fn(),
+            update: jest.fn(),
           },
         },
       ],
@@ -87,6 +89,20 @@ describe('UsersController', () => {
       await expect(controller.findOne('nonexistent')).rejects.toThrow(
         NotFoundException,
       );
+    });
+  });
+
+  describe('update', () => {
+    it('delegates to usersService.update and returns result', async () => {
+      const dto: UpdateUserDto = { firstName: 'Jane', city: 'Madrid' };
+      const updated = { ...mockUserResult, firstName: 'Jane' };
+      usersService.update.mockResolvedValue(updated);
+
+      const req = { user: { id: 'uuid-1', role: UserRole.PARTICIPANT } };
+      const result = await controller.update('uuid-1', dto, req as any);
+
+      expect(usersService.update).toHaveBeenCalledWith('uuid-1', dto);
+      expect(result).toEqual(updated);
     });
   });
 });

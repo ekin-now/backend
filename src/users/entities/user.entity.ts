@@ -90,6 +90,9 @@ export class User {
   })
   strava?: string;
 
+  @Column({ nullable: true, type: 'uuid' })
+  companyId?: string;
+
   @ManyToOne(() => Company, (company) => company.users, {
     nullable: true,
     onDelete: 'SET NULL',

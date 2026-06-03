@@ -6,6 +6,7 @@ import {
   Delete,
   Param,
   Body,
+  Query,
   NotFoundException,
   ForbiddenException,
   BadRequestException,
@@ -25,6 +26,8 @@ import {
 import { SportEventService } from '../service/sport-event.service';
 import { CreateSportEventDto } from '../dto/create-sport-event.dto';
 import { UpdateSportEventDto } from '../dto/update-sport-event.dto';
+import { FindSportEventsDto } from '../dto/find-sport-events.dto';
+import { FilterOptionsResponseDto } from '../dto/filter-options-response.dto';
 import { SportEventResponseDto } from '../dto/sport-event-response.dto';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
@@ -58,8 +61,14 @@ export class SportEventController {
 
   @ApiOkResponse({ type: SportEventResponseDto, isArray: true })
   @Get()
-  findAll() {
-    return this.sportEventService.findAll();
+  findAll(@Query() query: FindSportEventsDto) {
+    return this.sportEventService.findAll(query);
+  }
+
+  @ApiOkResponse({ type: FilterOptionsResponseDto })
+  @Get('filter-options')
+  getFilterOptions(@Query('country') country?: string) {
+    return this.sportEventService.getFilterOptions(country);
   }
 
   @ApiOkResponse({ type: SportEventResponseDto })

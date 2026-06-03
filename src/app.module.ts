@@ -7,6 +7,8 @@ import { CompanyModule } from './company/company.module';
 import { SportEventModule } from './sport-event/sport-event.module';
 import { SportSubEventModule } from './sport-sub-event/sport-sub-event.module';
 import { StorageModule } from './storage/storage.module';
+import { FollowModule } from './follow/follow.module';
+import { PostModule } from './post/post.module';
 
 @Module({
   imports: [
@@ -32,6 +34,8 @@ import { StorageModule } from './storage/storage.module';
     SportEventModule,
     SportSubEventModule,
     StorageModule,
+    FollowModule,
+    PostModule,
   ],
   controllers: [],
   providers: [],

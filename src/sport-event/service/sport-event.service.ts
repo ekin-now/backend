@@ -4,11 +4,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Not, In } from 'typeorm';
+import { Repository } from 'typeorm';
 import { SportEvent } from '../entities/sport-event.entity';
 import { SportEventStatus } from '../entities/sport.event-status.enum';
 import { CreateSportEventDto } from '../dto/create-sport-event.dto';
 import { UpdateSportEventDto } from '../dto/update-sport-event.dto';
+import { FindSportEventsDto } from '../dto/find-sport-events.dto';
+import { FilterOptionsResponseDto } from '../dto/filter-options-response.dto';
 
 @Injectable()
 export class SportEventService {
@@ -29,10 +31,57 @@ export class SportEventService {
     return this.repo.save(event);
   }
 
-  findAll(): Promise<SportEvent[]> {
-    return this.repo.findBy({
-      status: Not(In([SportEventStatus.DRAFT, SportEventStatus.CANCELLED])),
-    });
+  findAll(filters: FindSportEventsDto = {}): Promise<SportEvent[]> {
+    const qb = this.repo
+      .createQueryBuilder('e')
+      .where('e.status NOT IN (:...statuses)', {
+        statuses: [SportEventStatus.DRAFT, SportEventStatus.CANCELLED],
+      });
+
+    if (filters.sportType)
+      qb.andWhere('e.sportType = :sportType', { sportType: filters.sportType });
+    if (filters.country)
+      qb.andWhere('e.country = :country', { country: filters.country });
+    if (filters.region)
+      qb.andWhere('e.region = :region', { region: filters.region });
+    if (filters.dateFrom)
+      qb.andWhere('e.eventDate >= :dateFrom', { dateFrom: filters.dateFrom });
+    if (filters.dateTo)
+      qb.andWhere('e.eventDate <= :dateTo', { dateTo: filters.dateTo });
+
+    return qb.orderBy('e.eventDate', 'ASC').getMany();
+  }
+
+  async getFilterOptions(country?: string): Promise<FilterOptionsResponseDto> {
+    const base = this.repo
+      .createQueryBuilder('e')
+      .where('e.status NOT IN (:...statuses)', {
+        statuses: [SportEventStatus.DRAFT, SportEventStatus.CANCELLED],
+      });
+
+    const [sportTypesRaw, countriesRaw, regionsRaw] = await Promise.all([
+      base
+        .clone()
+        .select('DISTINCT e.sportType', 'value')
+        .getRawMany<{ value: string }>(),
+      base
+        .clone()
+        .select('DISTINCT e.country', 'value')
+        .getRawMany<{ value: string }>(),
+      country
+        ? base
+            .clone()
+            .andWhere('e.country = :country', { country })
+            .select('DISTINCT e.region', 'value')
+            .getRawMany<{ value: string }>()
+        : Promise.resolve([]),
+    ]);
+
+    return {
+      sportTypes: sportTypesRaw.map((r) => r.value).sort(),
+      countries: countriesRaw.map((r) => r.value).sort(),
+      regions: regionsRaw.map((r) => r.value).sort(),
+    };
   }
 
   findOne(id: string): Promise<SportEvent | null> {

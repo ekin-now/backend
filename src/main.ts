@@ -17,7 +17,8 @@ async function bootstrap() {
     jsonDocumentUrl: 'swagger/json',
   });
 
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
+  app.enableCors({ origin: 'http://localhost:4200', credentials: true });
+  app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
   await app.listen(process.env.PORT ?? 3000);
 }
 bootstrap();

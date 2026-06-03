@@ -21,6 +21,7 @@ const mockEvent: Partial<SportEvent> = {
 const mockSportEventService = {
   create: jest.fn(),
   findAll: jest.fn(),
+  getFilterOptions: jest.fn(),
   findOne: jest.fn(),
   update: jest.fn(),
   remove: jest.fn(),
@@ -84,12 +85,57 @@ describe('SportEventController', () => {
   });
 
   describe('findAll', () => {
-    it('returns public events', async () => {
+    it('delegates filters to service', async () => {
+      const query = { sportType: 'trail', country: 'Spain' };
       mockSportEventService.findAll.mockResolvedValue([mockEvent]);
 
-      const result = await controller.findAll();
+      const result = await controller.findAll(query as any);
 
+      expect(mockSportEventService.findAll).toHaveBeenCalledWith(query);
       expect(result).toEqual([mockEvent]);
+    });
+
+    it('passes empty query when no filters', async () => {
+      mockSportEventService.findAll.mockResolvedValue([mockEvent]);
+
+      const result = await controller.findAll({});
+
+      expect(mockSportEventService.findAll).toHaveBeenCalledWith({});
+      expect(result).toEqual([mockEvent]);
+    });
+  });
+
+  describe('getFilterOptions', () => {
+    it('delegates to service without country', async () => {
+      const options = {
+        sportTypes: ['trail'],
+        countries: ['Spain'],
+        regions: [],
+      };
+      mockSportEventService.getFilterOptions.mockResolvedValue(options);
+
+      const result = await controller.getFilterOptions();
+
+      expect(mockSportEventService.getFilterOptions).toHaveBeenCalledWith(
+        undefined,
+      );
+      expect(result).toEqual(options);
+    });
+
+    it('passes country to service when provided', async () => {
+      const options = {
+        sportTypes: [],
+        countries: [],
+        regions: ['Community of Madrid'],
+      };
+      mockSportEventService.getFilterOptions.mockResolvedValue(options);
+
+      const result = await controller.getFilterOptions('Spain');
+
+      expect(mockSportEventService.getFilterOptions).toHaveBeenCalledWith(
+        'Spain',
+      );
+      expect(result).toEqual(options);
     });
   });
 

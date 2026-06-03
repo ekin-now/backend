@@ -33,11 +33,21 @@ const mockEvent: SportEvent = {
   updatedAt: new Date(),
 };
 
+const mockQueryBuilder: any = {
+  where: jest.fn().mockReturnThis(),
+  andWhere: jest.fn().mockReturnThis(),
+  orderBy: jest.fn().mockReturnThis(),
+  select: jest.fn().mockReturnThis(),
+  clone: jest.fn(),
+  getMany: jest.fn(),
+  getRawMany: jest.fn(),
+};
+
 const mockRepository = {
   findOneBy: jest.fn(),
-  findBy: jest.fn(),
   create: jest.fn(),
   save: jest.fn(),
+  createQueryBuilder: jest.fn().mockReturnValue(mockQueryBuilder),
 };
 
 describe('SportEventService', () => {
@@ -45,6 +55,9 @@ describe('SportEventService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    mockRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
+    mockQueryBuilder.clone.mockReturnValue(mockQueryBuilder);
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SportEventService,
@@ -93,15 +106,90 @@ describe('SportEventService', () => {
   });
 
   describe('findAll', () => {
-    it('excludes DRAFT and CANCELLED events', async () => {
-      mockRepository.findBy.mockResolvedValue([mockEvent]);
+    it('excludes DRAFT and CANCELLED events, orders by date', async () => {
+      mockQueryBuilder.getMany.mockResolvedValue([mockEvent]);
 
-      const result = await service.findAll();
+      const result = await service.findAll({});
 
-      expect(mockRepository.findBy).toHaveBeenCalledWith(
-        expect.objectContaining({ status: expect.anything() }),
+      expect(mockRepository.createQueryBuilder).toHaveBeenCalledWith('e');
+      expect(mockQueryBuilder.where).toHaveBeenCalledWith(
+        'e.status NOT IN (:...statuses)',
+        expect.objectContaining({ statuses: expect.any(Array) }),
+      );
+      expect(mockQueryBuilder.orderBy).toHaveBeenCalledWith(
+        'e.eventDate',
+        'ASC',
       );
       expect(result).toEqual([mockEvent]);
+    });
+
+    it('applies sportType filter when provided', async () => {
+      mockQueryBuilder.getMany.mockResolvedValue([]);
+
+      await service.findAll({ sportType: 'trail' });
+
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        'e.sportType = :sportType',
+        { sportType: 'trail' },
+      );
+    });
+
+    it('applies country + region filters when provided', async () => {
+      mockQueryBuilder.getMany.mockResolvedValue([]);
+
+      await service.findAll({
+        country: 'Spain',
+        region: 'Community of Madrid',
+      });
+
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        'e.country = :country',
+        { country: 'Spain' },
+      );
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        'e.region = :region',
+        { region: 'Community of Madrid' },
+      );
+    });
+
+    it('applies date range filters when provided', async () => {
+      mockQueryBuilder.getMany.mockResolvedValue([]);
+
+      await service.findAll({ dateFrom: '2025-01-01', dateTo: '2025-12-31' });
+
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        'e.eventDate >= :dateFrom',
+        { dateFrom: '2025-01-01' },
+      );
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        'e.eventDate <= :dateTo',
+        { dateTo: '2025-12-31' },
+      );
+    });
+  });
+
+  describe('getFilterOptions', () => {
+    it('returns sorted sportTypes, countries, and empty regions when no country', async () => {
+      mockQueryBuilder.getRawMany
+        .mockResolvedValueOnce([{ value: 'trail' }, { value: 'cycling' }])
+        .mockResolvedValueOnce([{ value: 'Spain' }, { value: 'France' }]);
+
+      const result = await service.getFilterOptions();
+
+      expect(result.sportTypes).toEqual(['cycling', 'trail']);
+      expect(result.countries).toEqual(['France', 'Spain']);
+      expect(result.regions).toEqual([]);
+    });
+
+    it('returns regions when country provided', async () => {
+      mockQueryBuilder.getRawMany
+        .mockResolvedValueOnce([{ value: 'trail' }])
+        .mockResolvedValueOnce([{ value: 'Spain' }])
+        .mockResolvedValueOnce([{ value: 'Catalonia' }, { value: 'Aragon' }]);
+
+      const result = await service.getFilterOptions('Spain');
+
+      expect(result.regions).toEqual(['Aragon', 'Catalonia']);
     });
   });
 

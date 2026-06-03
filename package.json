@@ -23,7 +23,8 @@
     "migration:run": "npm run typeorm -- migration:run -d src/database/data-source.ts",
     "migration:revert": "npm run typeorm -- migration:revert -d src/database/data-source.ts",
     "migration:show": "npm run typeorm -- migration:show -d src/database/data-source.ts",
-    "entities:watch": "chokidar \"src/**/*.entity.ts\" -c \"bash scripts/auto-migrate.sh\" --initial false --debounce 1500"
+    "entities:watch": "chokidar \"src/**/*.entity.ts\" -c \"bash scripts/auto-migrate.sh\" --initial false --debounce 1500",
+    "seed": "npx ts-node --project tsconfig.json -r tsconfig-paths/register src/database/seed.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1057.0",

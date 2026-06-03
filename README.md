@@ -6,7 +6,7 @@
 [![Bugs](https://sonarcloud.io/api/project_badges/measure?project=ekin-now_backend&metric=bugs)](https://sonarcloud.io/summary/new_code?id=ekin-now_backend)
 [![Code Smells](https://sonarcloud.io/api/project_badges/measure?project=ekin-now_backend&metric=code_smells)](https://sonarcloud.io/summary/new_code?id=ekin-now_backend)
 
-REST API built with NestJS, TypeORM, and PostgreSQL (Supabase). Handles user management, JWT authentication, companies, and sport events.
+REST API built with NestJS, TypeORM, and PostgreSQL (Supabase). Handles user management, JWT authentication, companies, sport events, and a social timeline (posts, follows, likes, comments).
 
 ## Tech Stack
 
@@ -136,6 +136,20 @@ Sub-events are nested under their parent sport event.
 | `PATCH` | `/sport-events/:eventId/sub-events/:id` | SUPER_ADMIN or COMPANY_ADMIN | Update sub-event |
 | `DELETE` | `/sport-events/:eventId/sub-events/:id` | SUPER_ADMIN | Cancel sub-event |
 
+### Sport Event Filters
+
+`GET /sport-events` accepts optional query params:
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `sportType` | string | Filter by sport type |
+| `country` | string | Filter by country |
+| `region` | string | Filter by region |
+| `dateFrom` | ISO date | Events on or after this date |
+| `dateTo` | ISO date | Events on or before this date |
+
+`GET /sport-events/filter-options?country=España` returns distinct values for filter dropdowns.
+
 ### Sport Event Statuses
 
 | Status | Description |
@@ -147,6 +161,46 @@ Sub-events are nested under their parent sport event.
 | `IN_PROGRESS` | Event is happening |
 | `FINISHED` | Event completed |
 | `CANCELLED` | Soft-deleted, not visible publicly |
+
+### Follows
+
+All endpoints require JWT. Asymmetric follow model (Twitter-style).
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/follows/:userId` | Follow a user (204) |
+| `DELETE` | `/follows/:userId` | Unfollow a user (204) |
+| `GET` | `/follows/followers` | My followers |
+| `GET` | `/follows/following` | Users I follow |
+
+### Posts & Timeline
+
+All endpoints require JWT.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/posts/feed?page=1&limit=20` | Chronological feed (own posts + followed users) |
+| `POST` | `/posts` | Create a post |
+| `GET` | `/posts/:id` | Get post by ID |
+| `DELETE` | `/posts/:id` | Delete own post (or SUPER_ADMIN) |
+| `POST` | `/posts/:id/likes` | Like a post (idempotent, 204) |
+| `DELETE` | `/posts/:id/likes` | Unlike a post (idempotent, 204) |
+| `GET` | `/posts/:id/comments` | Get comments for a post |
+| `POST` | `/posts/:id/comments` | Add a comment |
+| `DELETE` | `/posts/:id/comments/:commentId` | Delete own comment (or SUPER_ADMIN) |
+
+#### Post types
+
+| `type` | Description |
+|--------|-------------|
+| `TEXT` | Plain text post |
+| `IMAGE` | Text + `imageUrl` |
+| `EVENT_REF` | References a `SportEvent` via `sportEventId` |
+| `ACTIVITY` | Sport activity result with `activityData` (sport, distance, duration, pace, elevation) |
+
+The `type` field is auto-inferred if not provided: `activityData` → `ACTIVITY`, `sportEventId` → `EVENT_REF`, `imageUrl` → `IMAGE`, otherwise `TEXT`.
+
+Feed response includes `likesCount`, `commentsCount`, and `isLikedByMe` per post.
 
 ### Storage
 
@@ -169,6 +223,30 @@ All endpoints require JWT. Files are stored in Cloudflare R2.
 | `gpx` | `SportSubEvent.gpxUrl` | `application/gpx+xml`, `text/xml`, `application/xml` |
 
 **Max file size:** 50 MB
+
+## Seed Data
+
+Populate the database with test users, companies, events, sub-events, follows, posts, likes, and comments:
+
+```bash
+npm run seed
+```
+
+Re-running the script is idempotent — it removes previous seed rows first.
+
+**Test accounts** (password: `Ekinnow2026!`):
+
+| Email | Role | Company |
+|-------|------|---------|
+| `admin@ekinnow.com` | SUPER_ADMIN | — |
+| `admin@andalucia-trail.com` | COMPANY_ADMIN | Andalucía Trail Runners |
+| `admin@cycling-euskadi.com` | COMPANY_ADMIN | Cycling Euskadi |
+| `admin@triatlo-cat.com` | COMPANY_ADMIN | Club Triatlón Catalunya |
+| `participant1@test.com` | PARTICIPANT | — |
+| `participant2@test.com` | PARTICIPANT | — |
+| `participant3@test.com` | PARTICIPANT | — |
+
+`participant1@test.com` follows 4 users and has the richest timeline feed to test.
 
 ## Creating a Sport Event with Assets — Full Flow
 
@@ -409,7 +487,20 @@ src/
 │   └── company.module.ts
 ├── database/
 │   ├── migrations/    # TypeORM migrations
-│   └── data-source.ts # TypeORM CLI config
+│   ├── data-source.ts # TypeORM CLI config
+│   └── seed.ts        # Test data seed script
+├── follow/
+│   ├── controller/
+│   ├── dto/           # FollowResponseDto
+│   ├── entities/      # Follow entity (composite PK)
+│   ├── service/
+│   └── follow.module.ts
+├── post/
+│   ├── controller/
+│   ├── dto/           # CreatePostDto, CreateCommentDto, PostResponseDto
+│   ├── entities/      # Post, PostComment, PostLike entities; PostType enum
+│   ├── service/
+│   └── post.module.ts
 ├── sport-event/
 │   ├── controller/
 │   ├── dto/           # CreateSportEventDto, UpdateSportEventDto, SportEventResponseDto

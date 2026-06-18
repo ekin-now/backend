@@ -77,6 +77,12 @@ export class Company {
   })
   companyType?: string;
 
+  @Column({ nullable: true, name: 'stripe_account_id' })
+  stripeAccountId?: string;
+
+  @Column({ default: false, name: 'stripe_onboarding_complete' })
+  stripeOnboardingComplete: boolean;
+
   @Column({
     default: true,
   })

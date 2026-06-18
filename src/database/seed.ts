@@ -15,6 +15,13 @@ import { PostType } from '../post/entities/post-type.enum';
 import { UserRole } from '../auth/decorators/userRole.enum';
 import { SportEventStatus } from '../sport-event/entities/sport.event-status.enum';
 import { SportSubEventStatus } from '../sport-sub-event/entities/sport-sub-evet-status.enum';
+import { Registration } from '../registration/entities/registration.entity';
+import { RegistrationStatus } from '../registration/entities/registration-status.enum';
+import { Payment } from '../payment/entities/payment.entity';
+import { PaymentStatus } from '../payment/entities/payment-status.enum';
+import { PaymentMethod } from '../payment/entities/payment-method.enum';
+import { Result } from '../result/entities/result.entity';
+import { ResultStatus } from '../result/entities/result-status.enum';
 
 // ── R2 upload helper ──────────────────────────────────────────────────────────
 
@@ -272,8 +279,28 @@ async function seed() {
   const postRepo = AppDataSource.getRepository(Post);
   const commentRepo = AppDataSource.getRepository(PostComment);
   const likeRepo = AppDataSource.getRepository(PostLike);
+  const registrationRepo = AppDataSource.getRepository(Registration);
+  const paymentRepo = AppDataSource.getRepository(Payment);
+  const resultRepo = AppDataSource.getRepository(Result);
 
   // ── Clean previous seed data (reverse FK order) ───────────────────────────
+
+  const existingUsers_precheck = await userRepo.findBy(
+    USER_EMAILS.map((email) => ({ email })),
+  );
+  if (existingUsers_precheck.length) {
+    const ids = existingUsers_precheck.map((u) => u.id);
+    await resultRepo
+      .createQueryBuilder()
+      .delete()
+      .where('participant_id IN (:...ids)', { ids })
+      .execute();
+    await registrationRepo
+      .createQueryBuilder()
+      .delete()
+      .where('participant_id IN (:...ids)', { ids })
+      .execute();
+  }
 
   const existingEvents = await eventRepo.findBy(
     EVENT_SLUGS.map((slug) => ({ slug })),
@@ -670,7 +697,22 @@ async function seed() {
 
   // ── Sport Sub-Events ──────────────────────────────────────────────────────
 
-  await subEventRepo.save([
+  const [
+    subUltra100,
+    subClassic50,
+    subFamily25,
+    _subSevillaMaraton,
+    _subSevillaMedia,
+    subItzuliaGrande,
+    subItzuliaMedio,
+    subItzuliaCorta,
+    _subAlavesaGrande,
+    _subAlavesaMedio,
+    subBarcelonaOlimpica,
+    subBarcelonaSprint,
+    subCastelldefelsEstandar,
+    _subCastelldefelsSprint,
+  ] = await subEventRepo.save([
     // Sierra Nevada Ultra Trail 2026 ─────────────────────────────────────────
     subEventRepo.create({
       sportEventId: evSierraNevada.id,
@@ -1239,6 +1281,273 @@ async function seed() {
   ]);
 
   console.log('Comments created.');
+
+  // ── Registrations ─────────────────────────────────────────────────────────
+  // Past events: Itzulia (Apr 4), Aquathlon Castelldefels (May 17)
+  // Future events: Sierra Nevada (Sep 12), Barcelona (Jul 5)
+
+  const [
+    regLauraClassic50,
+    regLauraBarcelonaSprint,
+    regLauraItzuliaMedio,
+    regJavierClassic50,
+    regJavierItzuliaGrande,
+    regJavierItzuliaCorta,
+    regNeusBcnOlimpica,
+    regNeusCastelldefels,
+    regLauraUltra100,
+    regJavierFamily25,
+    regNeusBcnSprint,
+  ] = await registrationRepo.save([
+    // Laura → Sierra Nevada 50K (future, APPROVED)
+    registrationRepo.create({
+      participantId: p1.id,
+      sportEventId: evSierraNevada.id,
+      subEventId: subClassic50.id,
+      status: RegistrationStatus.APPROVED,
+    }),
+    // Laura → Barcelona Sprint (future, APPROVED)
+    registrationRepo.create({
+      participantId: p1.id,
+      sportEventId: evBarcelona.id,
+      subEventId: subBarcelonaSprint.id,
+      status: RegistrationStatus.APPROVED,
+    }),
+    // Laura → Itzulia Mediofondo (past, APPROVED)
+    registrationRepo.create({
+      participantId: p1.id,
+      sportEventId: evItzulia.id,
+      subEventId: subItzuliaMedio.id,
+      status: RegistrationStatus.APPROVED,
+    }),
+    // Javier → Sierra Nevada 50K (future, APPROVED)
+    registrationRepo.create({
+      participantId: p2.id,
+      sportEventId: evSierraNevada.id,
+      subEventId: subClassic50.id,
+      status: RegistrationStatus.APPROVED,
+    }),
+    // Javier → Itzulia Gran Fondo (past, APPROVED)
+    registrationRepo.create({
+      participantId: p2.id,
+      sportEventId: evItzulia.id,
+      subEventId: subItzuliaGrande.id,
+      status: RegistrationStatus.APPROVED,
+    }),
+    // Javier → Itzulia Corta (past, APPROVED)
+    registrationRepo.create({
+      participantId: p2.id,
+      sportEventId: evItzulia.id,
+      subEventId: subItzuliaCorta.id,
+      status: RegistrationStatus.APPROVED,
+    }),
+    // Neus → Barcelona Olímpica (future, PENDING)
+    registrationRepo.create({
+      participantId: p3.id,
+      sportEventId: evBarcelona.id,
+      subEventId: subBarcelonaOlimpica.id,
+      status: RegistrationStatus.PENDING,
+    }),
+    // Neus → Aquathlon Castelldefels (past, APPROVED)
+    registrationRepo.create({
+      participantId: p3.id,
+      sportEventId: evCastelldefels.id,
+      subEventId: subCastelldefelsEstandar.id,
+      status: RegistrationStatus.APPROVED,
+    }),
+    // Laura → Ultra 100K (WAITLIST — capacity near full for seed)
+    registrationRepo.create({
+      participantId: p1.id,
+      sportEventId: evSierraNevada.id,
+      subEventId: subUltra100.id,
+      status: RegistrationStatus.WAITLIST,
+    }),
+    // Javier → Sierra Nevada Family 25K (PENDING)
+    registrationRepo.create({
+      participantId: p2.id,
+      sportEventId: evSierraNevada.id,
+      subEventId: subFamily25.id,
+      status: RegistrationStatus.PENDING,
+    }),
+    // Neus → Barcelona Sprint (PENDING)
+    registrationRepo.create({
+      participantId: p3.id,
+      sportEventId: evBarcelona.id,
+      subEventId: subBarcelonaSprint.id,
+      status: RegistrationStatus.PENDING,
+    }),
+  ]);
+
+  console.log('Registrations created.');
+
+  // ── Payments ──────────────────────────────────────────────────────────────
+
+  await paymentRepo.save([
+    // Laura — Sierra Nevada 50K (COMPLETED)
+    paymentRepo.create({
+      registrationId: regLauraClassic50.id,
+      participantId: p1.id,
+      amount: 65,
+      currency: 'EUR',
+      method: PaymentMethod.CARD,
+      status: PaymentStatus.COMPLETED,
+      transactionId: 'txn_laura_sierra_50k',
+    }),
+    // Laura — Barcelona Sprint (COMPLETED)
+    paymentRepo.create({
+      registrationId: regLauraBarcelonaSprint.id,
+      participantId: p1.id,
+      amount: 65,
+      currency: 'EUR',
+      method: PaymentMethod.STRIPE,
+      status: PaymentStatus.COMPLETED,
+      transactionId: 'txn_laura_bcn_sprint',
+    }),
+    // Laura — Itzulia Mediofondo (COMPLETED)
+    paymentRepo.create({
+      registrationId: regLauraItzuliaMedio.id,
+      participantId: p1.id,
+      amount: 42,
+      currency: 'EUR',
+      method: PaymentMethod.CARD,
+      status: PaymentStatus.COMPLETED,
+      transactionId: 'txn_laura_itzulia_medio',
+    }),
+    // Javier — Sierra Nevada 50K (COMPLETED)
+    paymentRepo.create({
+      registrationId: regJavierClassic50.id,
+      participantId: p2.id,
+      amount: 65,
+      currency: 'EUR',
+      method: PaymentMethod.CARD,
+      status: PaymentStatus.COMPLETED,
+      transactionId: 'txn_javier_sierra_50k',
+    }),
+    // Javier — Itzulia Gran Fondo (COMPLETED)
+    paymentRepo.create({
+      registrationId: regJavierItzuliaGrande.id,
+      participantId: p2.id,
+      amount: 55,
+      currency: 'EUR',
+      method: PaymentMethod.TRANSFER,
+      status: PaymentStatus.COMPLETED,
+      transactionId: 'txn_javier_itzulia_grande',
+    }),
+    // Javier — Itzulia Corta (COMPLETED)
+    paymentRepo.create({
+      registrationId: regJavierItzuliaCorta.id,
+      participantId: p2.id,
+      amount: 28,
+      currency: 'EUR',
+      method: PaymentMethod.CARD,
+      status: PaymentStatus.COMPLETED,
+      transactionId: 'txn_javier_itzulia_corta',
+    }),
+    // Neus — Aquathlon Castelldefels (COMPLETED)
+    paymentRepo.create({
+      registrationId: regNeusCastelldefels.id,
+      participantId: p3.id,
+      amount: 35,
+      currency: 'EUR',
+      method: PaymentMethod.STRIPE,
+      status: PaymentStatus.COMPLETED,
+      transactionId: 'txn_neus_castelldefels',
+    }),
+    // Neus — Barcelona Olímpica (FAILED — tarjeta rechazada)
+    paymentRepo.create({
+      registrationId: regNeusBcnOlimpica.id,
+      participantId: p3.id,
+      amount: 95,
+      currency: 'EUR',
+      method: PaymentMethod.CARD,
+      status: PaymentStatus.FAILED,
+      notes: 'Tarjeta rechazada',
+    }),
+    // Neus — Barcelona Sprint (PENDING — sin pagar)
+    paymentRepo.create({
+      registrationId: regNeusBcnSprint.id,
+      participantId: p3.id,
+      amount: 65,
+      currency: 'EUR',
+      method: PaymentMethod.CARD,
+      status: PaymentStatus.PENDING,
+    }),
+    // Javier — Family 25K (FAILED)
+    paymentRepo.create({
+      registrationId: regJavierFamily25.id,
+      participantId: p2.id,
+      amount: 42,
+      currency: 'EUR',
+      method: PaymentMethod.STRIPE,
+      status: PaymentStatus.FAILED,
+      notes: 'Error en pasarela de pago',
+    }),
+    // Laura — Ultra 100K (PENDING — en lista de espera, no pagado)
+    paymentRepo.create({
+      registrationId: regLauraUltra100.id,
+      participantId: p1.id,
+      amount: 95,
+      currency: 'EUR',
+      method: PaymentMethod.CARD,
+      status: PaymentStatus.PENDING,
+    }),
+  ]);
+
+  console.log('Payments created.');
+
+  // ── Results (past events only) ────────────────────────────────────────────
+  // Itzulia Amateur 2026 — April 4 (past)
+  // Aquathlon Castelldefels 2026 — May 17 (past)
+
+  await resultRepo.save([
+    // Itzulia Gran Fondo — Javier (DNF en el Jaizkibel)
+    resultRepo.create({
+      participantId: p2.id,
+      sportEventId: evItzulia.id,
+      subEventId: subItzuliaGrande.id,
+      status: ResultStatus.DNF,
+      bibNumber: 247,
+      notes: 'Abandonó en el km 89, calambres',
+    }),
+    // Itzulia Mediofondo — Laura (FINISHED, posición 18)
+    resultRepo.create({
+      participantId: p1.id,
+      sportEventId: evItzulia.id,
+      subEventId: subItzuliaMedio.id,
+      position: 18,
+      finishTimeSeconds: 11340,
+      bibNumber: 892,
+      status: ResultStatus.FINISHED,
+      category: 'F30-39',
+      categoryPosition: 3,
+    }),
+    // Itzulia Corta — Javier (mismo corredor, sub-evento corto, FINISHED)
+    resultRepo.create({
+      participantId: p2.id,
+      sportEventId: evItzulia.id,
+      subEventId: subItzuliaCorta.id,
+      position: 312,
+      finishTimeSeconds: 5820,
+      bibNumber: 1103,
+      status: ResultStatus.FINISHED,
+      category: 'M35-44',
+      categoryPosition: 87,
+    }),
+    // Aquathlon Castelldefels — Neus (FINISHED, posición 12)
+    resultRepo.create({
+      participantId: p3.id,
+      sportEventId: evCastelldefels.id,
+      subEventId: subCastelldefelsEstandar.id,
+      position: 12,
+      finishTimeSeconds: 2940,
+      bibNumber: 78,
+      status: ResultStatus.FINISHED,
+      category: 'F18-29',
+      categoryPosition: 2,
+    }),
+  ]);
+
+  console.log('Results created.');
 
   await AppDataSource.destroy();
 

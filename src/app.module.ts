@@ -9,6 +9,11 @@ import { SportSubEventModule } from './sport-sub-event/sport-sub-event.module';
 import { StorageModule } from './storage/storage.module';
 import { FollowModule } from './follow/follow.module';
 import { PostModule } from './post/post.module';
+import { RegistrationModule } from './registration/registration.module';
+import { PaymentModule } from './payment/payment.module';
+import { ResultModule } from './result/result.module';
+import { DashboardModule } from './dashboard/dashboard.module';
+import { StripeModule } from './stripe/stripe.module';
 
 @Module({
   imports: [
@@ -36,6 +41,11 @@ import { PostModule } from './post/post.module';
     StorageModule,
     FollowModule,
     PostModule,
+    StripeModule,
+    RegistrationModule,
+    PaymentModule,
+    ResultModule,
+    DashboardModule,
   ],
   controllers: [],
   providers: [],

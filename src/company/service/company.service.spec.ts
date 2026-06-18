@@ -20,6 +20,8 @@ const mockCompany: Company = {
   address: undefined,
   sportType: undefined,
   companyType: undefined,
+  stripeAccountId: undefined,
+  stripeOnboardingComplete: false,
   isActive: true,
   users: [],
   createdAt: new Date(),

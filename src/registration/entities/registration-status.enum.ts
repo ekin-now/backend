@@ -1,0 +1,7 @@
+export enum RegistrationStatus {
+  PENDING = 'PENDING',
+  APPROVED = 'APPROVED',
+  WAITLIST = 'WAITLIST',
+  REJECTED = 'REJECTED',
+  CANCELLED = 'CANCELLED',
+}

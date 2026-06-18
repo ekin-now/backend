@@ -215,7 +215,11 @@ describe('SportEventService', () => {
 
   describe('findDetail', () => {
     it('returns event with company and subEvents relations', async () => {
-      const detail = { ...mockEvent, company: { id: 'company-uuid-1' }, subEvents: [] };
+      const detail = {
+        ...mockEvent,
+        company: { id: 'company-uuid-1' },
+        subEvents: [],
+      };
       mockRepository.findOne.mockResolvedValue(detail);
 
       const result = await service.findDetail('uuid-1');

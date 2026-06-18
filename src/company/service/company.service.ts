@@ -42,6 +42,27 @@ export class CompanyService {
     return this.companyRepository.save(company);
   }
 
+  async setStripeAccount(
+    id: string,
+    stripeAccountId: string,
+  ): Promise<Company> {
+    const company = await this.companyRepository.findOneBy({ id });
+    if (!company) throw new NotFoundException('Company not found');
+    company.stripeAccountId = stripeAccountId;
+    return this.companyRepository.save(company);
+  }
+
+  async setOnboardingComplete(stripeAccountId: string): Promise<void> {
+    await this.companyRepository.update(
+      { stripeAccountId },
+      { stripeOnboardingComplete: true },
+    );
+  }
+
+  findByStripeAccountId(stripeAccountId: string): Promise<Company | null> {
+    return this.companyRepository.findOneBy({ stripeAccountId });
+  }
+
   async remove(id: string): Promise<void> {
     const company = await this.companyRepository.findOneBy({ id });
     if (!company) throw new NotFoundException('Company not found');

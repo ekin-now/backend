@@ -23,6 +23,7 @@ const mockSportEventService = {
   findAll: jest.fn(),
   getFilterOptions: jest.fn(),
   findOne: jest.fn(),
+  findDetail: jest.fn(),
   update: jest.fn(),
   remove: jest.fn(),
 };
@@ -136,6 +137,31 @@ describe('SportEventController', () => {
         'Spain',
       );
       expect(result).toEqual(options);
+    });
+  });
+
+  describe('findDetail', () => {
+    const detailEvent = {
+      ...mockEvent,
+      company: { id: 'company-uuid-1', name: 'Test Co' },
+      subEvents: [],
+    };
+
+    it('returns event with relations when found', async () => {
+      mockSportEventService.findDetail.mockResolvedValue(detailEvent);
+
+      const result = await controller.findDetail('uuid-1');
+
+      expect(mockSportEventService.findDetail).toHaveBeenCalledWith('uuid-1');
+      expect(result).toEqual(detailEvent);
+    });
+
+    it('throws NotFoundException when not found', async () => {
+      mockSportEventService.findDetail.mockResolvedValue(null);
+
+      await expect(controller.findDetail('nonexistent')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 

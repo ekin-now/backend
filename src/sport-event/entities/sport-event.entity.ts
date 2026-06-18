@@ -5,9 +5,11 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   ManyToOne,
+  OneToMany,
   JoinColumn,
 } from 'typeorm';
 import { Company } from '../../company/entities/company.entity';
+import { SportSubEvent } from '../../sport-sub-event/entities/sport-sub-event.entity';
 import { SportEventStatus } from './sport.event-status.enum';
 
 @Entity('sport_events')
@@ -93,6 +95,9 @@ export class SportEvent {
 
   @Column()
   companyId: string;
+
+  @OneToMany(() => SportSubEvent, (sub) => sub.sportEvent)
+  subEvents: SportSubEvent[];
 
   @CreateDateColumn()
   createdAt: Date;

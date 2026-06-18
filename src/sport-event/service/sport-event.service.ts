@@ -88,6 +88,14 @@ export class SportEventService {
     return this.repo.findOneBy({ id });
   }
 
+  findDetail(id: string): Promise<SportEvent | null> {
+    return this.repo.findOne({
+      where: { id },
+      relations: { company: true, subEvents: true },
+      order: { subEvents: { startDateTime: 'ASC' } },
+    });
+  }
+
   async update(id: string, dto: UpdateSportEventDto): Promise<SportEvent> {
     const event = await this.repo.findOneBy({ id });
     if (!event) throw new NotFoundException('Sport event not found');

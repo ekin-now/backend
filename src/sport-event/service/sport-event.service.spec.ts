@@ -29,6 +29,7 @@ const mockEvent: SportEvent = {
   featured: false,
   company: undefined,
   companyId: 'company-uuid-1',
+  subEvents: [],
   createdAt: new Date(),
   updatedAt: new Date(),
 };
@@ -45,6 +46,7 @@ const mockQueryBuilder: any = {
 
 const mockRepository = {
   findOneBy: jest.fn(),
+  findOne: jest.fn(),
   create: jest.fn(),
   save: jest.fn(),
   createQueryBuilder: jest.fn().mockReturnValue(mockQueryBuilder),
@@ -206,6 +208,31 @@ describe('SportEventService', () => {
       mockRepository.findOneBy.mockResolvedValue(null);
 
       const result = await service.findOne('nonexistent');
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('findDetail', () => {
+    it('returns event with company and subEvents relations', async () => {
+      const detail = { ...mockEvent, company: { id: 'company-uuid-1' }, subEvents: [] };
+      mockRepository.findOne.mockResolvedValue(detail);
+
+      const result = await service.findDetail('uuid-1');
+
+      expect(mockRepository.findOne).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'uuid-1' },
+          relations: { company: true, subEvents: true },
+        }),
+      );
+      expect(result).toEqual(detail);
+    });
+
+    it('returns null when not found', async () => {
+      mockRepository.findOne.mockResolvedValue(null);
+
+      const result = await service.findDetail('nonexistent');
 
       expect(result).toBeNull();
     });

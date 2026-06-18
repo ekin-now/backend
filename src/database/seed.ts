@@ -1,5 +1,7 @@
 import 'reflect-metadata';
 import * as bcrypt from 'bcrypt';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { v4 as uuidv4 } from 'uuid';
 import { AppDataSource } from './data-source';
 import { Company } from '../company/entities/company.entity';
 import { User } from '../users/entities/user.entity';
@@ -13,6 +15,87 @@ import { PostType } from '../post/entities/post-type.enum';
 import { UserRole } from '../auth/decorators/userRole.enum';
 import { SportEventStatus } from '../sport-event/entities/sport.event-status.enum';
 import { SportSubEventStatus } from '../sport-sub-event/entities/sport-sub-evet-status.enum';
+
+// ── R2 upload helper ──────────────────────────────────────────────────────────
+
+async function uploadFromPicsum(
+  client: S3Client,
+  bucket: string,
+  publicUrlBase: string,
+  assetType: string,
+  picsumSeed: string,
+  width: number,
+  height: number,
+): Promise<string> {
+  const response = await fetch(
+    `https://picsum.photos/seed/${picsumSeed}/${width}/${height}`,
+  );
+  if (!response.ok) throw new Error(`Picsum fetch failed: ${picsumSeed}`);
+  const buffer = Buffer.from(await response.arrayBuffer());
+  const key = `${assetType}/${uuidv4()}.jpg`;
+  await client.send(
+    new PutObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      Body: buffer,
+      ContentType: 'image/jpeg',
+    }),
+  );
+  return `${publicUrlBase}/${key}`;
+}
+
+// ── GPX helpers ──────────────────────────────────────────────────────────────
+
+function generateGpx(
+  name: string,
+  lat: number,
+  lon: number,
+  distanceKm: number,
+): string {
+  const POINTS = 80;
+  const radiusKm = distanceKm / (2 * Math.PI);
+  const latDeg = radiusKm / 111;
+  const lonDeg = radiusKm / (111 * Math.cos((lat * Math.PI) / 180));
+
+  const trackpoints = Array.from({ length: POINTS + 1 }, (_, i) => {
+    const angle = (2 * Math.PI * i) / POINTS;
+    const ptLat = (lat + latDeg * Math.cos(angle)).toFixed(6);
+    const ptLon = (lon + lonDeg * Math.sin(angle)).toFixed(6);
+    return `      <trkpt lat="${ptLat}" lon="${ptLon}"/>`;
+  }).join('\n');
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="Ekinnow" xmlns="http://www.topografix.com/GPX/1/1">
+  <trk>
+    <name>${name}</name>
+    <trkseg>
+${trackpoints}
+    </trkseg>
+  </trk>
+</gpx>`;
+}
+
+async function uploadGpx(
+  client: S3Client,
+  bucket: string,
+  publicUrlBase: string,
+  name: string,
+  lat: number,
+  lon: number,
+  distanceKm: number,
+): Promise<string> {
+  const content = generateGpx(name, lat, lon, distanceKm);
+  const key = `gpx/${uuidv4()}.gpx`;
+  await client.send(
+    new PutObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      Body: Buffer.from(content, 'utf-8'),
+      ContentType: 'application/gpx+xml',
+    }),
+  );
+  return `${publicUrlBase}/${key}`;
+}
 
 // ── Slugs / emails used to identify seed rows ────────────────────────────────
 
@@ -47,6 +130,136 @@ const EVENT_SLUGS = [
 
 async function seed() {
   const PASSWORD_HASH = await bcrypt.hash('Ekinnow2026!', 10);
+
+  const r2 = new S3Client({
+    region: 'auto',
+    endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+    credentials: {
+      accessKeyId: process.env.R2_ACCESS_KEY_ID!,
+      secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
+    },
+  });
+  const R2_BUCKET = process.env.R2_BUCKET_NAME!;
+  const R2_PUBLIC = process.env.R2_PUBLIC_URL!;
+
+  const up = (
+    assetType: string,
+    seed: string,
+    w: number,
+    h: number,
+  ): Promise<string> =>
+    uploadFromPicsum(r2, R2_BUCKET, R2_PUBLIC, assetType, seed, w, h);
+
+  console.log('Uploading assets to R2...');
+
+  const [
+    logoTrail,
+    bannerTrail,
+    logoCycling,
+    bannerCycling,
+    logoTriatlon,
+    bannerTriatlon,
+  ] = await Promise.all([
+    up('companies', 'trail-logo', 400, 400),
+    up('companies', 'trail-banner', 1200, 400),
+    up('companies', 'cycling-logo', 400, 400),
+    up('companies', 'cycling-banner', 1200, 400),
+    up('companies', 'triathlon-logo', 400, 400),
+    up('companies', 'triathlon-banner', 1200, 400),
+  ]);
+
+  const [
+    logoSierraNevada,
+    bannerSierraNevada,
+    logoSevillaTrail,
+    bannerSevillaTrail,
+    logoItzulia,
+    bannerItzulia,
+    logoAlavesa,
+    bannerAlavesa,
+    logoBarcelona,
+    bannerBarcelona,
+    logoCastelldefels,
+    bannerCastelldefels,
+  ] = await Promise.all([
+    up('events', 'sierra-nevada-logo', 400, 400),
+    up('events', 'sierra-nevada-banner', 1200, 400),
+    up('events', 'sevilla-trail-logo', 400, 400),
+    up('events', 'sevilla-trail-banner', 1200, 400),
+    up('events', 'itzulia-logo', 400, 400),
+    up('events', 'itzulia-banner', 1200, 400),
+    up('events', 'alavesa-logo', 400, 400),
+    up('events', 'alavesa-banner', 1200, 400),
+    up('events', 'barcelona-tri-logo', 400, 400),
+    up('events', 'barcelona-tri-banner', 1200, 400),
+    up('events', 'castelldefels-logo', 400, 400),
+    up('events', 'castelldefels-banner', 1200, 400),
+  ]);
+
+  const [
+    avatarSuperAdmin,
+    avatarCarmen,
+    avatarMiguel,
+    avatarIker,
+    avatarAmaia,
+    avatarMarc,
+    avatarLaura,
+    avatarJavier,
+    avatarNeus,
+  ] = await Promise.all([
+    up('users', 'superadmin-av', 200, 200),
+    up('users', 'carmen-av', 200, 200),
+    up('users', 'miguel-av', 200, 200),
+    up('users', 'iker-av', 200, 200),
+    up('users', 'amaia-av', 200, 200),
+    up('users', 'marc-av', 200, 200),
+    up('users', 'laura-av', 200, 200),
+    up('users', 'javier-av', 200, 200),
+    up('users', 'neus-av', 200, 200),
+  ]);
+
+  const [postImageLaura, postImageJavier] = await Promise.all([
+    up('posts', 'laura-cycling', 800, 600),
+    up('posts', 'javier-trail', 800, 600),
+  ]);
+
+  // Sub-event GPX routes (circular tracks around event coordinates)
+  const upGpx = (name: string, lat: number, lon: number, km: number) =>
+    uploadGpx(r2, R2_BUCKET, R2_PUBLIC, name, lat, lon, km);
+
+  const [
+    gpxUltra100,
+    gpxClassic50,
+    gpxFamily25,
+    gpxSevillaMaraton,
+    gpxSevillaMedia,
+    gpxItzuliaGranFondo,
+    gpxItzuliaMediofondo,
+    gpxItzuliaCorta,
+    gpxAlavesaGranFondo,
+    gpxAlavesaMediofondo,
+    gpxBarcelonaOlimpica,
+    gpxBarcelonaSprint,
+    gpxCastelldefelsEstandar,
+    gpxCastelldefelsSprint,
+  ] = await Promise.all([
+    upGpx('Ultra 100K', 37.0948, -3.3926, 100),
+    upGpx('Classic 50K', 37.0948, -3.3926, 50),
+    upGpx('Family 25K', 37.0948, -3.3926, 25),
+    upGpx('Maratón Trail 42K', 37.8504, -5.6142, 42.195),
+    upGpx('Media Maratón Trail 21K', 37.8504, -5.6142, 21.097),
+    upGpx('Gran Fondo 120km', 42.8469, -2.6727, 120),
+    upGpx('Mediofondo 80km', 42.8469, -2.6727, 80),
+    upGpx('Marcha Corta 40km', 42.8469, -2.6727, 40),
+    upGpx('Gran Fondo 150km', 42.8497, -2.6742, 150),
+    upGpx('Mediofondo 75km', 42.8497, -2.6742, 75),
+    upGpx('Distancia Olímpica', 41.3879, 2.1965, 51.5),
+    upGpx('Distancia Sprint', 41.3879, 2.1965, 25.75),
+    upGpx('Distancia Estándar', 41.2762, 1.9758, 6),
+    upGpx('Distancia Sprint Castelldefels', 41.2762, 1.9758, 3),
+  ]);
+
+  console.log('Assets uploaded.');
 
   await AppDataSource.initialize();
   console.log('Connected to database.');
@@ -108,6 +321,8 @@ async function seed() {
       city: 'Granada',
       sportType: 'trail',
       companyType: 'Club deportivo',
+      logoUrl: logoTrail,
+      bannerUrl: bannerTrail,
       isActive: true,
     }),
     companyRepo.create({
@@ -122,6 +337,8 @@ async function seed() {
       city: 'Vitoria-Gasteiz',
       sportType: 'cycling',
       companyType: 'Club deportivo',
+      logoUrl: logoCycling,
+      bannerUrl: bannerCycling,
       isActive: true,
     }),
     companyRepo.create({
@@ -136,6 +353,8 @@ async function seed() {
       city: 'Barcelona',
       sportType: 'triathlon',
       companyType: 'Federación',
+      logoUrl: logoTriatlon,
+      bannerUrl: bannerTriatlon,
       isActive: true,
     }),
   ]);
@@ -171,6 +390,7 @@ async function seed() {
       isVerified: true,
       country: 'España',
       city: 'Madrid',
+      avatarUrl: avatarSuperAdmin,
     }),
     userRepo.create({
       email: 'admin@andalucia-trail.com',
@@ -184,6 +404,7 @@ async function seed() {
       isVerified: true,
       country: 'España',
       city: 'Granada',
+      avatarUrl: avatarCarmen,
     }),
     userRepo.create({
       email: 'staff@andalucia-trail.com',
@@ -197,6 +418,7 @@ async function seed() {
       isVerified: true,
       country: 'España',
       city: 'Málaga',
+      avatarUrl: avatarMiguel,
     }),
     userRepo.create({
       email: 'admin@cycling-euskadi.com',
@@ -210,6 +432,7 @@ async function seed() {
       isVerified: true,
       country: 'España',
       city: 'Vitoria-Gasteiz',
+      avatarUrl: avatarIker,
     }),
     userRepo.create({
       email: 'staff@cycling-euskadi.com',
@@ -223,6 +446,7 @@ async function seed() {
       isVerified: true,
       country: 'España',
       city: 'Bilbao',
+      avatarUrl: avatarAmaia,
     }),
     userRepo.create({
       email: 'admin@triatlo-cat.com',
@@ -236,6 +460,7 @@ async function seed() {
       isVerified: true,
       country: 'España',
       city: 'Barcelona',
+      avatarUrl: avatarMarc,
     }),
     userRepo.create({
       email: 'participant1@test.com',
@@ -250,6 +475,7 @@ async function seed() {
       city: 'Madrid',
       gender: 'F',
       birthDate: new Date('1992-03-15'),
+      avatarUrl: avatarLaura,
     }),
     userRepo.create({
       email: 'participant2@test.com',
@@ -264,6 +490,7 @@ async function seed() {
       city: 'Sevilla',
       gender: 'M',
       birthDate: new Date('1988-07-22'),
+      avatarUrl: avatarJavier,
     }),
     userRepo.create({
       email: 'participant3@test.com',
@@ -278,6 +505,7 @@ async function seed() {
       city: 'Barcelona',
       gender: 'F',
       birthDate: new Date('1995-11-08'),
+      avatarUrl: avatarNeus,
     }),
   ]);
 
@@ -313,6 +541,8 @@ async function seed() {
       latitude: 37.0948,
       longitude: -3.3926,
       featured: true,
+      logoUrl: logoSierraNevada,
+      bannerUrl: bannerSierraNevada,
       companyId: compTrail.id,
     }),
     eventRepo.create({
@@ -334,6 +564,8 @@ async function seed() {
       latitude: 37.8504,
       longitude: -5.6142,
       featured: false,
+      logoUrl: logoSevillaTrail,
+      bannerUrl: bannerSevillaTrail,
       companyId: compTrail.id,
     }),
 
@@ -357,6 +589,8 @@ async function seed() {
       latitude: 42.8469,
       longitude: -2.6727,
       featured: true,
+      logoUrl: logoItzulia,
+      bannerUrl: bannerItzulia,
       companyId: compCycling.id,
     }),
     eventRepo.create({
@@ -378,6 +612,8 @@ async function seed() {
       latitude: 42.8497,
       longitude: -2.6742,
       featured: false,
+      logoUrl: logoAlavesa,
+      bannerUrl: bannerAlavesa,
       companyId: compCycling.id,
     }),
 
@@ -401,6 +637,8 @@ async function seed() {
       latitude: 41.3879,
       longitude: 2.1965,
       featured: true,
+      logoUrl: logoBarcelona,
+      bannerUrl: bannerBarcelona,
       companyId: compTriatlon.id,
     }),
     eventRepo.create({
@@ -422,6 +660,8 @@ async function seed() {
       latitude: 41.2762,
       longitude: 1.9758,
       featured: false,
+      logoUrl: logoCastelldefels,
+      bannerUrl: bannerCastelldefels,
       companyId: compTriatlon.id,
     }),
   ]);
@@ -454,6 +694,7 @@ async function seed() {
       bibEndNumber: 300,
       registrationOpenAt: new Date('2026-04-01'),
       registrationCloseAt: new Date('2026-08-31'),
+      gpxUrl: gpxUltra100,
     }),
     subEventRepo.create({
       sportEventId: evSierraNevada.id,
@@ -477,6 +718,7 @@ async function seed() {
       bibEndNumber: 900,
       registrationOpenAt: new Date('2026-04-01'),
       registrationCloseAt: new Date('2026-08-31'),
+      gpxUrl: gpxClassic50,
     }),
     subEventRepo.create({
       sportEventId: evSierraNevada.id,
@@ -500,6 +742,7 @@ async function seed() {
       bibEndNumber: 1900,
       registrationOpenAt: new Date('2026-04-01'),
       registrationCloseAt: new Date('2026-08-31'),
+      gpxUrl: gpxFamily25,
     }),
 
     // Maratón de Sevilla Trail 2026 ───────────────────────────────────────────
@@ -525,6 +768,7 @@ async function seed() {
       bibEndNumber: 500,
       registrationOpenAt: new Date('2026-07-01'),
       registrationCloseAt: new Date('2026-11-15'),
+      gpxUrl: gpxSevillaMaraton,
     }),
     subEventRepo.create({
       sportEventId: evSevillaTrail.id,
@@ -547,6 +791,7 @@ async function seed() {
       bibEndNumber: 1300,
       registrationOpenAt: new Date('2026-07-01'),
       registrationCloseAt: new Date('2026-11-15'),
+      gpxUrl: gpxSevillaMedia,
     }),
 
     // Itzulia Amateur 2026 ────────────────────────────────────────────────────
@@ -572,6 +817,7 @@ async function seed() {
       bibEndNumber: 800,
       registrationOpenAt: new Date('2026-01-15'),
       registrationCloseAt: new Date('2026-03-25'),
+      gpxUrl: gpxItzuliaGranFondo,
     }),
     subEventRepo.create({
       sportEventId: evItzulia.id,
@@ -594,6 +840,7 @@ async function seed() {
       bibEndNumber: 2000,
       registrationOpenAt: new Date('2026-01-15'),
       registrationCloseAt: new Date('2026-03-25'),
+      gpxUrl: gpxItzuliaMediofondo,
     }),
     subEventRepo.create({
       sportEventId: evItzulia.id,
@@ -615,6 +862,7 @@ async function seed() {
       bibNumberRequired: false,
       registrationOpenAt: new Date('2026-01-15'),
       registrationCloseAt: new Date('2026-03-25'),
+      gpxUrl: gpxItzuliaCorta,
     }),
 
     // Vuelta Ciclista Alavesa 2026 ─────────────────────────────────────────────
@@ -640,6 +888,7 @@ async function seed() {
       bibEndNumber: 600,
       registrationOpenAt: new Date('2026-03-01'),
       registrationCloseAt: new Date('2026-06-10'),
+      gpxUrl: gpxAlavesaGranFondo,
     }),
     subEventRepo.create({
       sportEventId: evAlavesa.id,
@@ -662,6 +911,7 @@ async function seed() {
       bibEndNumber: 1600,
       registrationOpenAt: new Date('2026-03-01'),
       registrationCloseAt: new Date('2026-06-10'),
+      gpxUrl: gpxAlavesaMediofondo,
     }),
 
     // Barcelona Triathlon 2026 ────────────────────────────────────────────────
@@ -686,6 +936,7 @@ async function seed() {
       bibEndNumber: 1500,
       registrationOpenAt: new Date('2026-02-01'),
       registrationCloseAt: new Date('2026-06-20'),
+      gpxUrl: gpxBarcelonaOlimpica,
     }),
     subEventRepo.create({
       sportEventId: evBarcelona.id,
@@ -708,6 +959,7 @@ async function seed() {
       bibEndNumber: 2500,
       registrationOpenAt: new Date('2026-02-01'),
       registrationCloseAt: new Date('2026-06-20'),
+      gpxUrl: gpxBarcelonaSprint,
     }),
 
     // Aquathlon Castelldefels 2026 ─────────────────────────────────────────────
@@ -733,6 +985,7 @@ async function seed() {
       bibEndNumber: 500,
       registrationOpenAt: new Date('2026-03-01'),
       registrationCloseAt: new Date('2026-05-10'),
+      gpxUrl: gpxCastelldefelsEstandar,
     }),
     subEventRepo.create({
       sportEventId: evCastelldefels.id,
@@ -753,6 +1006,7 @@ async function seed() {
       bibNumberRequired: false,
       registrationOpenAt: new Date('2026-03-01'),
       registrationCloseAt: new Date('2026-05-10'),
+      gpxUrl: gpxCastelldefelsSprint,
     }),
   ]);
 
@@ -826,14 +1080,8 @@ async function seed() {
     }),
     postRepo.create({
       userId: p2.id,
-      type: PostType.ACTIVITY,
-      activityData: {
-        sport: 'trail',
-        distance: 21.4,
-        duration: 7560,
-        pace: '5:54/km',
-        elevation: 980,
-      },
+      type: PostType.IMAGE,
+      imageUrl: postImageJavier,
       text: 'Tirada larga por Sierra Norte esta mañana. Piernas de hierro y pulmones de cartón 😅 Pero hay que sufrir si quieres llegar en forma a la sierra. Poco a poco.',
     }),
     postRepo.create({
@@ -853,14 +1101,8 @@ async function seed() {
     }),
     postRepo.create({
       userId: p1.id,
-      type: PostType.ACTIVITY,
-      activityData: {
-        sport: 'cycling',
-        distance: 87,
-        duration: 11700,
-        pace: '26.8km/h',
-        elevation: 1450,
-      },
+      type: PostType.IMAGE,
+      imageUrl: postImageLaura,
       text: 'Salida en grupo por La Pedriza. Hemos pillado el día perfecto, sin viento y con buenas piernas. Ya tengo ganas de que llegue junio 🚴‍♀️',
     }),
     postRepo.create({

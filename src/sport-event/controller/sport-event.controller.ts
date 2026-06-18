@@ -29,6 +29,7 @@ import { UpdateSportEventDto } from '../dto/update-sport-event.dto';
 import { FindSportEventsDto } from '../dto/find-sport-events.dto';
 import { FilterOptionsResponseDto } from '../dto/filter-options-response.dto';
 import { SportEventResponseDto } from '../dto/sport-event-response.dto';
+import { SportEventDetailResponseDto } from '../dto/sport-event-detail-response.dto';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
@@ -69,6 +70,15 @@ export class SportEventController {
   @Get('filter-options')
   getFilterOptions(@Query('country') country?: string) {
     return this.sportEventService.getFilterOptions(country);
+  }
+
+  @ApiOkResponse({ type: SportEventDetailResponseDto })
+  @ApiNotFoundResponse({ description: 'Sport event not found' })
+  @Get(':id/detail')
+  async findDetail(@Param('id') id: string) {
+    const event = await this.sportEventService.findDetail(id);
+    if (!event) throw new NotFoundException('Sport event not found');
+    return event;
   }
 
   @ApiOkResponse({ type: SportEventResponseDto })

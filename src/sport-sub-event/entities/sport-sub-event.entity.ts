@@ -15,10 +15,10 @@ export class SportSubEvent {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
+  @Column({ name: 'sport_event_id' })
   sportEventId: string;
 
-  @ManyToOne(() => SportEvent)
+  @ManyToOne(() => SportEvent, (event) => event.subEvents)
   @JoinColumn({ name: 'sport_event_id' })
   sportEvent: SportEvent;
 
